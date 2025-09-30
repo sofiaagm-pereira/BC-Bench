@@ -298,6 +298,11 @@ function Write-Log {
         [string]$Level = "Info"
     )
 
+    # Skip Debug messages unless RUNNER_DEBUG is enabled
+    if ($Level -eq "Debug" -and $env:RUNNER_DEBUG -ne '1') {
+        return
+    }
+
     $logConfig = @{
         "Info"    = @{ Color = "White"; AnsiColor = "`e[37m" }      # White
         "Warning" = @{ Color = "Yellow"; AnsiColor = "`e[33m" }  # Yellow
