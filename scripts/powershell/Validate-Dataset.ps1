@@ -99,6 +99,9 @@ foreach ($entry in $versionEntries) {
         $failureCount++
     }
     finally {
+        Write-Log "Cleaning up Git state for $($entry.instance_id)" -Level Debug
+        git reset --hard HEAD 2>&1 | Out-Null
+        git clean -fd 2>&1 | Out-Null
         Pop-Location
     }
 }
