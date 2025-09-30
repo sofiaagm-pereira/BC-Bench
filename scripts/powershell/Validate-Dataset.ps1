@@ -77,6 +77,9 @@ foreach ($entry in $versionEntries) {
         Write-Log "Building test project for $($entry.instance_id)" -Level Info
         foreach ($projectPath in $entry.project_paths) {
             [string]$fullProjectPath = Join-Path -Path $NAVClonePath -ChildPath $projectPath
+
+            Update-AppProjectVersion -ProjectPath $fullProjectPath -Version $Version
+
             Write-Log "Compiling app in path: $fullProjectPath" -Level Info
             Compile-AppInBcContainer -containerName $containerName -appProjectFolder $fullProjectPath -credential $credential
             if ($LASTEXITCODE -ne 0) {
