@@ -322,4 +322,70 @@ function Write-Log {
     }
 }
 
-Export-ModuleMember -Function Get-BCCredential, Invoke-GitCloneWithRetry, Wait-JobWithProgress, Get-EnvironmentVariable, Write-Log
+<#
+.SYNOPSIS
+    Applies a git patch from a string to the current repository
+.DESCRIPTION
+    Saves patch content to a temporary file and applies it using git apply.
+    Cleans up the temporary file after application.
+.PARAMETER PatchContent
+    The patch content as a string
+.PARAMETER PatchId
+    Optional identifier for the patch (used in temp filename, default: random GUID)
+.PARAMETER RepositoryPath
+    Optional path to the git repository (default: current directory)
+.OUTPUTS
+    Returns $true if patch applied successfully, $false otherwise
+.EXAMPLE
+    Invoke-GitApplyPatch -PatchContent $patchString -PatchId "test-123"
+.EXAMPLE
+    Invoke-GitApplyPatch -PatchContent $patchString -RepositoryPath "C:\repo"
+#>
+function Invoke-GitApplyPatch {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PatchContent,
+
+        [Parameter(Mandatory = $false)]
+        [string]$PatchId = [System.Guid]::NewGuid().ToString(),
+
+        [Parameter(Mandatory = $false)]
+        [string]$RepositoryPath
+    )
+
+    try {
+        # Create temporary patch file
+        $patchPath = Join-Path -Path $env:TEMP -ChildPath "patch_$PatchId.diff"
+        Write-Log "Saving patch to temporary file: $patchPath" -Level Debug
+        $PatchContent | Out-File -FilePath $patchPath -Encoding utf8 -Force
+
+        # Apply the patch
+        if ($RepositoryPath) {
+            $applyResult = git -C $RepositoryPath apply $patchPath 2>&1
+        } else {
+            $applyResult = git apply $patchPath 2>&1
+        }
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "Failed to apply patch: $applyResult" -Level Error
+            return $false
+        }
+
+        Write-Log "Patch applied successfully" -Level Success
+        return $true
+    }
+    catch {
+        Write-Log "Exception while applying patch: $($_.Exception.Message)" -Level Error
+        return $false
+    }
+    finally {
+        # Clean up temporary patch file
+        if (Test-Path $patchPath) {
+            Remove-Item -Path $patchPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Export-ModuleMember -Function Get-BCCredential, Invoke-GitCloneWithRetry, Wait-JobWithProgress, Get-EnvironmentVariable, Write-Log, Invoke-GitApplyPatch

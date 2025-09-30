@@ -69,11 +69,10 @@ foreach ($entry in $versionEntries) {
         }
 
         Write-Log "Applying test patch for $($entry.instance_id)" -Level Info
-        $applyResult = git apply $entry.test_patch 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to apply test patch: $applyResult"
+        $patchApplied = Invoke-GitApplyPatch -PatchContent $entry.test_patch -PatchId $entry.instance_id
+        if (-not $patchApplied) {
+            throw "Failed to apply test patch"
         }
-        Write-Log "Test patch applied successfully" -Level Success
 
         Write-Log "Building test project for $($entry.instance_id)" -Level Info
         foreach ($projectPath in $entry.project_paths) {
