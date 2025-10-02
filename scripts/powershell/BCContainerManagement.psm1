@@ -313,6 +313,7 @@ function New-BCContainerAsync {
             credential = $credential
             includeTestToolkit = $true
             multitenant = $false
+            shortcuts = 'None'
         }
 
         if ($acceptEula) {
