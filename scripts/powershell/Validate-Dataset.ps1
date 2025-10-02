@@ -1,6 +1,7 @@
 using module .\DatasetEntry.psm1
 using module .\BCBenchUtils.psm1
 using module .\AppUtils.psm1
+using module .\BCContainerManagement.psm1
 
 param(
     [Parameter(Mandatory=$true)]
@@ -51,6 +52,8 @@ catch {
     Write-Error "Failed to load dataset entries: $($_.Exception.Message)"
     exit 1
 }
+
+Import-Module BcContainerHelper -Force -DisableNameChecking
 
 [string] $containerName = Get-StandardContainerName -Version $Version
 [ValidationResult[]]$validationResults = @()
