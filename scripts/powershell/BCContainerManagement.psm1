@@ -192,7 +192,8 @@ function Initialize-ContainerForDevelopment() {
     )
 
     $BCContainerModule = "$PSScriptRoot\BCContainerManagement.psm1"
-    Copy-FileToBcContainer -containerName $ContainerName -localpath $BCContainerModule
+    $containerModulePath = "C:\Run\bcbench\BCContainerManagement.psm1"
+    Copy-FileToBcContainer -containerName $ContainerName -localpath $BCContainerModule -containerPath $containerModulePath
 
     Invoke-ScriptInBcContainer -containerName $ContainerName -scriptblock {
         param([string] $ContainerModule, [System.Version] $RepoVersion, [string] $DatabaseName = "CRONUS")
@@ -236,8 +237,7 @@ function Initialize-ContainerForDevelopment() {
             Start-NAVServerInstance -ServerInstance $server.ServerInstance
         }
 
-
-    } -argumentList $BCContainerModule,$RepoVersion -usePwsh $false
+    } -argumentList $containerModulePath,$RepoVersion
 }
 
 <#
@@ -282,6 +282,9 @@ function New-BCContainerAsync {
         [string]$ContainerName,
 
         [Parameter(Mandatory = $true)]
+        [string]$Version,
+
+        [Parameter(Mandatory = $true)]
         [string]$ArtifactUrl,
 
         [Parameter(Mandatory = $true)]
@@ -291,29 +294,44 @@ function New-BCContainerAsync {
         [bool]$AcceptEula = $true,
 
         [Parameter(Mandatory = $false)]
-        [string]$AuthType = "UserPassword"
+        [string]$AuthType = "UserPassword",
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$AdditionalFolders = @()
     )
 
     Write-Log "Starting container creation job for: $ContainerName" -Level Info
 
     [System.Management.Automation.Job]$containerJob = Start-Job -ScriptBlock {
-        param([string] $url, [string] $containerName, [PSCredential] $credential, [bool] $acceptEula, [string] $authType)
+        param([string] $url, [string] $containerName, [PSCredential] $credential, [bool] $acceptEula, [string] $authType, [string[]] $additionalFolders, [string] $version)
 
         Import-Module BcContainerHelper -Force -DisableNameChecking
 
         $params = @{
             artifactUrl = $url
-            containerName = $containerName
+            containerName = $ContainerName
             auth = $authType
             credential = $credential
+            includeTestToolkit = $true
+            multitenant = $false
+            shortcuts = 'None'
         }
 
         if ($acceptEula) {
             $params.accept_eula = $true
         }
 
+        if ($additionalFolders -and $additionalFolders.Count -gt 0) {
+            [string[]]$volumeMappings = @()
+            foreach ($folder in $additionalFolders) {
+                $volumeMappings += "--volume"
+                $volumeMappings += "${folder}:C:\Source"
+            }
+            $params.additionalParameters = $volumeMappings
+        }
+
         New-BCContainer @params
-    } -ArgumentList $ArtifactUrl, $ContainerName, $Credential, $AcceptEula, $AuthType
+    } -ArgumentList $ArtifactUrl, $ContainerName, $Credential, $AcceptEula, $AuthType, $AdditionalFolders, $Version
 
     Write-Log "Container creation job started (Job ID: $($containerJob.Id))" -Level Success
     return $containerJob

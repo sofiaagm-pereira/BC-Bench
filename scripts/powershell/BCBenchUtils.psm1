@@ -227,7 +227,7 @@ function Wait-JobWithProgress {
         [string]$StatusMessage = "Job",
 
         [Parameter(Mandatory = $false)]
-        [int]$TimeoutMinutes = 20
+        [int]$TimeoutMinutes = 30
     )
 
     Write-Log "Waiting for $StatusMessage to complete (timeout: $TimeoutMinutes minutes)..." -Level Info
@@ -298,6 +298,11 @@ function Write-Log {
         [string]$Level = "Info"
     )
 
+    # Skip Debug messages unless RUNNER_DEBUG is enabled
+    if ($Level -eq "Debug" -and $env:RUNNER_DEBUG -ne '1') {
+        return
+    }
+
     $logConfig = @{
         "Info"    = @{ Color = "White"; AnsiColor = "`e[37m" }      # White
         "Warning" = @{ Color = "Yellow"; AnsiColor = "`e[33m" }  # Yellow
@@ -322,4 +327,128 @@ function Write-Log {
     }
 }
 
-Export-ModuleMember -Function Get-BCCredential, Invoke-GitCloneWithRetry, Wait-JobWithProgress, Get-EnvironmentVariable, Write-Log
+<#
+.SYNOPSIS
+    Applies a git patch from a string to the current repository
+.DESCRIPTION
+    Saves patch content to a temporary file and applies it using git apply.
+    Cleans up the temporary file after application.
+.PARAMETER PatchContent
+    The patch content as a string
+.PARAMETER PatchId
+    Unique identifier for the patch
+.PARAMETER RepositoryPath
+    Optional path to the git repository (default: current directory)
+.OUTPUTS
+    Returns $true if patch applied successfully, $false otherwise
+.EXAMPLE
+    Invoke-GitApplyPatch -PatchContent $patchString -PatchId "test-123"
+.EXAMPLE
+    Invoke-GitApplyPatch -PatchContent $patchString -RepositoryPath "C:\repo"
+#>
+function Invoke-GitApplyPatch {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PatchContent,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PatchId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$RepositoryPath
+    )
+
+    try {
+        # Create temporary patch file
+        [string]$patchPath = Join-Path -Path $env:TEMP -ChildPath "patch_$PatchId.diff"
+        Write-Log "Saving patch to temporary file: $patchPath" -Level Debug
+        $PatchContent | Out-File -FilePath $patchPath -Encoding utf8 -Force
+
+        if ($RepositoryPath) {
+            $applyResult = git -C $RepositoryPath apply $patchPath 2>&1
+        } else {
+            $applyResult = git apply $patchPath 2>&1
+        }
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to apply patch: $applyResult"
+        }
+
+        Write-Log "Patch applied successfully" -Level Success
+    }
+    catch {
+        Write-Log "Exception while applying patch: $($_.Exception.Message)" -Level Error
+        throw
+    }
+    finally {
+        if (Test-Path $patchPath) {
+            Remove-Item -Path $patchPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Updates version numbers in a BC app project's app.json file
+.DESCRIPTION
+    Updates the application, platform, and dependency versions in an app.json file.
+    Platform version uses only the first two digits (major.minor).
+    Application and dependency versions use the full version with .0.0 appended.
+    Automatically locates app.json in the project folder.
+.PARAMETER ProjectPath
+    Path to the BC app project folder containing app.json
+.PARAMETER Version
+    Target version string (e.g., "26.5" or "26.6")
+.OUTPUTS
+    Returns $true if update was successful, $false otherwise
+.EXAMPLE
+    Update-AppProjectVersion -ProjectPath "C:\repo\app" -Version "26.6"
+    # Updates application to 26.6.0.0 and platform to 26.0.0.0
+#>
+function Update-AppProjectVersion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+    Write-Log "Updating app project version in: $ProjectPath to version: $Version" -Level Info
+    [string]$appJsonPath = Join-Path -Path $ProjectPath -ChildPath "app.json"
+
+    if (-not (Test-Path $appJsonPath)) {
+        throw "app.json not found at: $appJsonPath"
+    }
+
+    Write-Log "Reading app.json from: $appJsonPath" -Level Debug
+    $appJson = Get-Content -Path $appJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+
+    [string[]]$versionParts = $Version.Split('.')
+    if ($versionParts.Count -lt 2) {
+        throw "Invalid version format: $Version. Expected format: major.minor (e.g., 26.5)"
+    }
+
+    [string]$applicationVersion = "$($versionParts[0]).$($versionParts[1]).0.0"
+    [string]$platformVersion = "$($versionParts[0]).0.0.0"
+
+    Write-Log "Updating versions - Application: $applicationVersion, Platform: $platformVersion" -Level Debug
+
+    $appJson.version = $applicationVersion
+    $appJson.application = $applicationVersion
+    $appJson.platform = $platformVersion
+
+    if ($appJson.dependencies) {
+        foreach ($dependency in $appJson.dependencies) {
+            $dependency.version = $applicationVersion
+        }
+        Write-Log "Updated $($appJson.dependencies.Count) dependency version(s)" -Level Debug
+    }
+
+    $appJson | ConvertTo-Json -Depth 10 | Set-Content -Path $appJsonPath -Encoding UTF8 -Force
+
+    Write-Log "Successfully updated app.json at: $appJsonPath" -Level Success
+}
+
+Export-ModuleMember -Function Get-BCCredential, Invoke-GitCloneWithRetry, Wait-JobWithProgress, Get-EnvironmentVariable, Write-Log, Invoke-GitApplyPatch, Update-AppProjectVersion
