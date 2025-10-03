@@ -1,0 +1,92 @@
+name: Evaluation with Mini Agent
+description: Evaluate using mini-bcbench-agent
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  get-versions:
+    runs-on: windows-latest
+    outputs:
+      versions: ${{ steps.get-versions.outputs.versions }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        run: |
+          cd scripts/python
+          pip install -r requirements.txt
+
+      - name: Get unique versions for matrix
+        id: get-versions
+        run: |
+          cd scripts/python
+          $uniqueVersions = python get_unique_versions.py
+          "versions=$uniqueVersions" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        shell: pwsh
+
+  environment-setup:
+    runs-on: windows-latest
+    outputs:
+      entries: ${{ steps.get-entries.outputs.entries }}
+    needs: get-versions
+    if: needs.get-versions.outputs.versions != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJson(needs.get-versions.outputs.versions) }}
+    steps:
+      - name: Install BcContainerHelper module
+        run: |
+          Install-Module -Name BcContainerHelper -Force -AllowClobber
+        shell: pwsh
+
+      - name: Setup BC container and clone NAV repository for Version ${{ matrix.version }}
+        id: setup-env
+        env:
+          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
+          NAV_REPO_TOKEN: ${{ secrets.NAV_REPO_TOKEN }}
+        run: |
+          cd scripts/powershell
+          .\Setup-ContainerAndRepository.ps1 -Version "${{ matrix.version }}"
+        shell: pwsh
+
+      - name: Get entries for version ${{ matrix.version }}
+        id: get-entries
+        run: |
+          cd scripts/python
+          $entries = python get_entries_for_version.py --version "${{ matrix.version }}"
+          "entries=$entries" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        shell: pwsh
+
+  evaluate-with-mini-agent:
+    runs-on: windows-latest
+    needs: environment-setup
+    if: needs.environment-setup.outputs.entries != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.environment-setup.outputs.entries) }}
+    steps:
+      - name: Generate Patch using mini-bcbench-agent for entry ${{ matrix.entry }}
+        env:
+          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
+        run: |
+          cd scripts/python
+
+          # TODO: call the mini agent script here
+          # e.g. python mini_bcbench_agent.py --entry "${{ matrix.entry }}"
+
+      - name: Running FAIL to PASS tests to verify the generated patch
+        run: |
+          cd scripts/powershell
+          .\Evaluate.ps1 -InstanceID "${{ matrix.entry }}"
+        shell: pwsh
