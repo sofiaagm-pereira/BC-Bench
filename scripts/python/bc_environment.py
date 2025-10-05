@@ -1,15 +1,12 @@
-"""
-BC Environment for mini-swe-agent
-Extends LocalEnvironment to provide BC/AL specific commands for building and testing
-"""
 import subprocess
 import os
-import json
+import logging
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 from minisweagent.environments.local import LocalEnvironment, LocalEnvironmentConfig
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class BCEnvironmentConfig(LocalEnvironmentConfig):
@@ -21,14 +18,7 @@ class BCEnvironmentConfig(LocalEnvironmentConfig):
     project_paths: list[str] = field(default_factory=list)
     enable_bc_tools: bool = True  # Flag to hide BC-specific tools from agent
 
-
 class BCEnvironment(LocalEnvironment):
-    """
-    Environment for BC/AL development that extends LocalEnvironment: https://mini-swe-agent.com/latest/reference/environments/local/
-    Provides high-level commands for building apps and running tests.
-    All other commands are executed as PowerShell commands.
-    """
-
     def __init__(self, *, config_class: type = BCEnvironmentConfig, **kwargs):
         super().__init__(config_class=config_class, **kwargs)
         self.config: BCEnvironmentConfig = self.config
@@ -39,10 +29,6 @@ class BCEnvironment(LocalEnvironment):
             raise ValueError("nav_repo_path is required in BCEnvironmentConfig")
 
     def execute(self, command: str, cwd: str = "", *, timeout: int | None = None) -> dict[str, Any]:
-        """
-        Execute a command. BC-specific commands are intercepted and handled,
-        all other commands are executed as PowerShell.
-        """
         command = command.strip()
 
         if command.startswith("bc_build "):
@@ -53,14 +39,10 @@ class BCEnvironment(LocalEnvironment):
             return self._execute_powershell(command, cwd, timeout)
 
     def _bc_build(self, command: str, cwd: str, timeout: int | None) -> dict[str, Any]:
-        """
-        Build and publish BC app
-        Usage: bc_build <project_path>
-        """
         parts = command.split(maxsplit=1)
         if len(parts) < 2:
             return {
-                "exit_code": 1,
+                "returncode": 1,
                 "output": "Error: bc_build requires a project path. Usage: bc_build <project_path>"
             }
 
@@ -68,7 +50,7 @@ class BCEnvironment(LocalEnvironment):
 
         if self.config.project_paths and project_path not in self.config.project_paths:
             return {
-                "exit_code": 1,
+                "returncode": 1,
                 "output": f"Error: Project path '{project_path}' is not in the allowed project_paths list: {self.config.project_paths}"
             }
 
@@ -100,7 +82,7 @@ Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProj
         parts = command.split(maxsplit=2)
         if len(parts) < 2:
             return {
-                "exit_code": 1,
+                "returncode": 1,
                 "output": "Error: bc_test requires a codeunit ID. Usage: bc_test <codeunit_id> [function1,function2,...]"
             }
 
@@ -108,7 +90,7 @@ Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProj
             codeunit_id: int = int(parts[1])
         except ValueError:
             return {
-                "exit_code": 1,
+                "returncode": 1,
                 "output": f"Error: Invalid codeunit ID '{parts[1]}'. Must be an integer."
             }
 
@@ -145,7 +127,9 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
         if timeout is None:
             timeout = self.config.timeout
 
-        working_dir = cwd or self.config.cwd or os.getcwd()
+        working_dir: str = cwd or self.config.cwd or os.getcwd()
+
+        logger.debug(f"Executing PowerShell command:\n{command}\nIn directory: {working_dir}")
 
         try:
             # Execute using pwsh (PowerShell Core) or powershell
@@ -165,18 +149,18 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
                 output += "\n" + result.stderr
 
             return {
-                "exit_code": result.returncode,
+                "returncode": result.returncode,
                 "output": output.strip()
             }
 
         except subprocess.TimeoutExpired as e:
             return {
-                "exit_code": -1,
+                "returncode": -1,
                 "output": f"Command timed out after {timeout} seconds\n{e.stdout or ''}"
             }
         except Exception as e:
             return {
-                "exit_code": -1,
+                "returncode": -1,
                 "output": f"Error executing command: {str(e)}"
             }
 
@@ -192,7 +176,6 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
         """Get template variables for prompt rendering"""
         vars = super().get_template_vars()
 
-        # Add BC-specific variables
         vars.update({
             "container_name": self.config.container_name,
             "nav_repo_path": self.config.nav_repo_path,

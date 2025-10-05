@@ -9,7 +9,6 @@ agent:
 
     Format your response as shown in <format_example>.
 
-
     <format_example>
     Your reasoning and analysis here. Explain why you want to perform the action.
 
@@ -58,7 +57,7 @@ agent:
     <example_response>
     THOUGHT: I need to understand the structure of the repository first. Let me check what files are in the current directory to get a better understanding of the codebase.
 
-    ```PowerShell
+    ```powershell
     ls -la
     ```
     </example_response>
@@ -114,7 +113,6 @@ agent:
     {{ output.output[-5000:] }}
     </output_tail>
     {%- endif -%}
-
   format_error_template: |
     Please always provide EXACTLY ONE action in triple backticks with language identifier 'powershell', found {{actions|length}} actions.
     If you want to end the task, please issue: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`
@@ -128,18 +126,3 @@ agent:
     <action>
     ```
     </response_example>
-
-  step_limit: 25
-  cost_limit: 5.0
-
-environment:
-  environment_class: bc_environment.BCEnvironment
-  timeout: 120
-  env:
-    PAGER: cat
-
-model:
-  model_name: "gpt-4"
-  model_kwargs:
-    temperature: 0.0
-    drop_params: true
