@@ -36,20 +36,12 @@ __all__ = [
     "extract_patches",
     "strip_html",
     "normalize_repo_subpath",
-    "configure_logging",
     "find_project_paths_from_patch",
     "BC_BENCH_ROOT",
     "DATASET_PATH",
     "DATASET_SCHEMA_PATH",
     "NAV_REPO_PATH",
 ]
-
-
-def configure_logging(*, verbose: bool) -> None:
-    """Configure basic logging for CLI commands."""
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format="%(message)s")
-
 
 def extract_patches(base_commit_id: str, commit_id: str) -> Tuple[str, str, str]:
     """Return the gold and fix patch between two commits in the NAV repository."""
