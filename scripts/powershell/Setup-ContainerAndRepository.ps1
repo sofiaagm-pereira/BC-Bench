@@ -106,4 +106,5 @@ if ($containerJob) {
 # Set output for GitHub Actions or return path
 if ($env:GITHUB_OUTPUT) {
     "nav_clone_path=$NAVRepoPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+    "container_name=$containerName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 }

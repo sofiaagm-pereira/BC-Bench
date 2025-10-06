@@ -8,7 +8,7 @@ from minisweagent.environments.local import LocalEnvironment, LocalEnvironmentCo
 from utils import colored, GREY
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.DEBUG if os.environ.get("RUNNER_DEBUG") == "1" else logging.INFO)
 
 @dataclass
 class BCEnvironmentConfig(LocalEnvironmentConfig):

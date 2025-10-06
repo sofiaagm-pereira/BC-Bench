@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-
+import os
 import typer
 import yaml, re
 from minisweagent.agents.default import DefaultAgent, FormatError
@@ -17,7 +17,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S'
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.DEBUG if os.environ.get("RUNNER_DEBUG") == "1" else logging.INFO)
 
 def load_entry_from_dataset(instance_id: str) -> DatasetEntry:
     with open(DATASET_PATH, "r", encoding="utf-8") as f:
@@ -58,7 +58,7 @@ def main(
     use_container: bool = typer.Option(False, help="Whether to use containerized BC environment"),
     container_name: str = typer.Option('bcbench-265', help="BC container name"),
     username: str = typer.Option("admin", help="Username for BC container environment"),
-    password: str = typer.Option("123456", help="Password for BC container environment"),
+    password: str = typer.Option(os.environ.get("BC_CONTAINER_PASSWORD"), help="Password for BC container environment"),
     step_limit: int = typer.Option(20, help="Maximum number of agent steps"),
     cost_limit: float = typer.Option(1.0, help="Maximum cost limit for agent"),
 ):

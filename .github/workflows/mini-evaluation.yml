@@ -37,6 +37,8 @@ jobs:
     runs-on: windows-latest
     outputs:
       entries: ${{ steps.get-entries.outputs.entries }}
+      repoPath: ${{ steps.setup-env.outputs.nav_clone_path }}
+      containerName: ${{ steps.setup-env.outputs.container_name }}
     needs: get-versions
     if: needs.get-versions.outputs.versions != '[]'
     strategy:
@@ -79,11 +81,13 @@ jobs:
       - name: Generate Patch using mini-bcbench-agent for entry ${{ matrix.entry }}
         env:
           BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
+          AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+          AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
+          AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
         run: |
           cd scripts/python
-
-          # TODO: call the mini agent script here
-          # e.g. python mini_bcbench_agent.py --entry "${{ matrix.entry }}"
+          python mini_bc_agent.py "${{ matrix.entry }}" "${{ needs.environment-setup.outputs.repoPath }}" --use-container False
+        shell: pwsh
 
       - name: Running FAIL to PASS tests to verify the generated patch
         run: |
