@@ -20,22 +20,18 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install Python dependencies
+      - name: Install bcbench package
         run: |
-          cd scripts/python
-          pip install -r requirements.txt
+          pip install -e .
 
       - name: Validate dataset schema
         run: |
-          cd scripts/python
-          python validate_dataset_schema.py
+          python -m bcbench validate dataset
 
       - name: Get unique versions for matrix
         id: get-versions
         run: |
-          cd scripts/python
-          $uniqueVersions = python get_unique_versions.py
-          "versions=$uniqueVersions" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          python -m bcbench dataset versions --github-output versions
         shell: pwsh
 
   verify-fail-to-pass-tests:

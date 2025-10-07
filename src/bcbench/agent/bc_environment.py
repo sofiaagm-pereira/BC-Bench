@@ -5,28 +5,27 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 from minisweagent.environments.local import LocalEnvironment, LocalEnvironmentConfig
-from utils import colored, GREY
+from bcbench.core.utils import colored, GREY
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG if os.environ.get("RUNNER_DEBUG") == "1" else logging.INFO)
 
 @dataclass
 class BCEnvironmentConfig(LocalEnvironmentConfig):
-    """Configuration for BC Environment"""
     container_name: str = ""
     nav_repo_path: str = ""
     username: str = "admin"
     password: str = ""
     project_paths: list[str] = field(default_factory=list)
-    enable_bc_tools: bool = True  # Flag to hide BC-specific tools from agent
+    enable_bc_tools: bool = True  # Flag to show/hide BC-specific tools from agent
 
 class BCEnvironment(LocalEnvironment):
     def __init__(self, *, config_class: type = BCEnvironmentConfig, **kwargs):
         super().__init__(config_class=config_class, **kwargs)
         self.config: BCEnvironmentConfig = self.config
 
-        if not self.config.container_name:
-            raise ValueError("container_name is required in BCEnvironmentConfig")
+        if (not self.config.container_name) and self.config.enable_bc_tools:
+            raise ValueError("container_name is required in BCEnvironmentConfig when enable_bc_tools is True")
         if not self.config.nav_repo_path:
             raise ValueError("nav_repo_path is required in BCEnvironmentConfig")
 
@@ -61,7 +60,7 @@ class BCEnvironment(LocalEnvironment):
 
         # Get the path to AppUtils module (relative to this script)
         script_dir = Path(__file__).parent
-        app_utils_path = script_dir.parent / "powershell" / "AppUtils.psm1"
+        app_utils_path = script_dir.parent.parent.parent / "scripts" / "powershell" / "AppUtils.psm1"
 
         ps_script = f"""
 Import-Module BcContainerHelper -Force -DisableNameChecking
@@ -106,7 +105,7 @@ Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProj
 
         # Get the path to AppUtils module (relative to this script)
         script_dir = Path(__file__).parent
-        app_utils_path = script_dir.parent / "powershell" / "AppUtils.psm1"
+        app_utils_path = script_dir.parent.parent.parent / "scripts" / "powershell" / "AppUtils.psm1"
 
         ps_script = f"""
 Import-Module BcContainerHelper -Force -DisableNameChecking

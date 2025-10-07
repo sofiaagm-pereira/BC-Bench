@@ -1,4 +1,3 @@
-"""DatasetEntry class for BC Bench scripts."""
 from __future__ import annotations
 
 import json
@@ -6,10 +5,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, TypedDict
-
 from jsonschema import ValidationError, validate
-
-from utils import (
+from bcbench.core.utils import (
     DATASET_SCHEMA_PATH,
     NAV_REPO_PATH,
     extract_patches,

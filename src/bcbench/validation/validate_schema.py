@@ -2,16 +2,24 @@
 """Validate all entries in the BC-Bench dataset against the JSON schema."""
 
 import json
-import sys
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple
 
-from dataset_entry import DatasetEntry
-from utils import DATASET_PATH, DATASET_SCHEMA_PATH
+import typer
+
+from bcbench.core.dataset_entry import DatasetEntry
+from bcbench.core.utils import DATASET_PATH, DATASET_SCHEMA_PATH
+from bcbench.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
-def validate_dataset() -> Tuple[int, int, List[str]]:
+def validate_dataset(dataset_path: Path = DATASET_PATH) -> Tuple[int, int, List[str]]:
     """
     Validate all dataset entries.
+
+    Args:
+        dataset_path: Path to the dataset file to validate
 
     Returns:
         Tuple of (total_entries, failed_entries, error_messages)
@@ -19,22 +27,22 @@ def validate_dataset() -> Tuple[int, int, List[str]]:
     total_entries: int = 0
     failed_entries: int = 0
 
-    if not DATASET_PATH.exists():
-        print(f"Error: Dataset file not found at {DATASET_PATH}")
-        return total_entries, failed_entries, [f"Dataset file not found at {DATASET_PATH}"]
+    if not dataset_path.exists():
+        logger.error(f"Dataset file not found at {dataset_path}")
+        return total_entries, failed_entries, [f"Dataset file not found at {dataset_path}"]
 
     if not DATASET_SCHEMA_PATH.exists():
-        print(f"Error: Schema file not found at {DATASET_SCHEMA_PATH}")
+        logger.error(f"Schema file not found at {DATASET_SCHEMA_PATH}")
         return total_entries, failed_entries, [f"Schema file not found at {DATASET_SCHEMA_PATH}"]
 
     error_messages = []
 
-    print(f"Validating dataset: {DATASET_PATH}")
-    print(f"Using schema: {DATASET_SCHEMA_PATH}")
+    logger.info(f"Validating dataset: {dataset_path}")
+    logger.info(f"Using schema: {DATASET_SCHEMA_PATH}")
     print("-" * 50)
 
     try:
-        with open(DATASET_PATH, 'r', encoding='utf-8') as file:
+        with open(dataset_path, 'r', encoding='utf-8') as file:
             for line_num, line in enumerate(file, 1):
                 line = line.strip()
                 if not line:
@@ -85,12 +93,20 @@ def validate_dataset() -> Tuple[int, int, List[str]]:
     return total_entries, failed_entries, error_messages
 
 
-def main() -> int:
-    """Main entry point."""
+def validate_dataset_file(dataset_path: Path) -> None:
+    """
+    Main entry point for dataset validation.
+
+    Args:
+        dataset_path: Path to the dataset file (defaults to DATASET_PATH)
+
+    Raises:
+        typer.Exit: Exits with code 1 on validation failure
+    """
     print("BC-Bench Dataset Validation")
     print("=" * 50)
 
-    total, failed, errors = validate_dataset()
+    total, failed, errors = validate_dataset(dataset_path)
 
     print("-" * 50)
     print("VALIDATION SUMMARY:")
@@ -103,12 +119,7 @@ def main() -> int:
         for error in errors:
             print(f"  - {error}")
 
-        print(f"\n[FAILED] Dataset validation failed: {failed} out of {total} entries have errors")
-        return 1
+        logger.error(f"Dataset validation failed: {failed} out of {total} entries have errors")
+        raise typer.Exit(code=1)
     else:
-        print(f"\n[SUCCESS] Dataset validation successful: All {total} entries are valid")
-        return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+        logger.info(f"Dataset validation successful: All {total} entries are valid")
