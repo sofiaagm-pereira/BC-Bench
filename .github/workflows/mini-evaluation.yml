@@ -108,7 +108,9 @@ jobs:
         shell: pwsh
 
       - name: Running FAIL to PASS tests to verify the generated patch
+        env:
+          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
         run: |
           cd scripts/powershell
-          .\Evaluate.ps1 -InstanceID "${{ matrix.entry }}"
+          .\Evaluate.ps1 -InstanceID "${{ matrix.entry }}" -NavClonePath "${{ needs.environment-setup.outputs.repoPath }}"
         shell: pwsh

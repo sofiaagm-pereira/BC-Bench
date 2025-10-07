@@ -41,7 +41,7 @@ def build_task_description(entry: DatasetEntry) -> str:
     task = entry.problem_statement
     if entry.hints_text:
         task += f"\n\n## Additional Hints\n{entry.hints_text}"
-    logger.info(f"Task description:\n{colored(task, GREY)}")
+    logger.info(f"Task description:\n{task}")
     return task
 
 
