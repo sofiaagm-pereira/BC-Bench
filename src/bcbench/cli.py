@@ -32,6 +32,7 @@ app.add_typer(dataset_app, name="dataset")
 def show_version():
     """Show bcbench version."""
     from importlib.metadata import version
+
     print(f"bcbench version {version('bcbench')}")
 
 

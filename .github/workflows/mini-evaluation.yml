@@ -104,7 +104,7 @@ jobs:
           AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
           AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
         run: |
-          python -m bcbench agent mini "${{ matrix.entry }}" --repo-path "${{ needs.environment-setup.outputs.repoPath }}" --use-container False
+          python -m bcbench agent mini "${{ matrix.entry }}" --repo-path "${{ needs.environment-setup.outputs.repoPath }}"
         shell: pwsh
 
       - name: Running FAIL to PASS tests to verify the generated patch
