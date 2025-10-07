@@ -1,5 +1,5 @@
 name: Evaluation with Mini Agent
-description: Evaluate using mini-bcbench-agent
+description: Evaluate using mini-bc-agent
 permissions:
   contents: read
 
@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  get-versions:
+  get-entries:
     runs-on: windows-latest
     outputs:
-      versions: ${{ steps.get-versions.outputs.versions }}
+      entry_matrix: ${{ steps.get-entries.outputs.entry_matrix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,30 +20,28 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install Python dependencies
+      - name: Install bcbench package
         run: |
-          cd scripts/python
-          pip install -r requirements.txt
+          pip install -e .
 
-      - name: Get unique versions for matrix
-        id: get-versions
+      - name: Get all entries with version info for matrix
+        id: get-entries
         run: |
-          cd scripts/python
-          $uniqueVersions = python get_unique_versions.py
-          "versions=$uniqueVersions" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          python -m bcbench dataset entry-matrix --github-output entry_matrix
         shell: pwsh
 
-  environment-setup:
+  evaluate-with-mini-agent:
     runs-on: windows-latest
-    outputs:
-      entries: ${{ steps.get-entries.outputs.entries }}
-    needs: get-versions
-    if: needs.get-versions.outputs.versions != '[]'
+    needs: get-entries
+    if: needs.get-entries.outputs.entry_matrix != '[]'
     strategy:
       fail-fast: false
       matrix:
-        version: ${{ fromJson(needs.get-versions.outputs.versions) }}
+        include: ${{ fromJson(needs.get-entries.outputs.entry_matrix) }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install BcContainerHelper module
         run: |
           Install-Module -Name BcContainerHelper -Force -AllowClobber
@@ -59,34 +57,29 @@ jobs:
           .\Setup-ContainerAndRepository.ps1 -Version "${{ matrix.version }}"
         shell: pwsh
 
-      - name: Get entries for version ${{ matrix.version }}
-        id: get-entries
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install bcbench package
         run: |
-          cd scripts/python
-          $entries = python get_entries_for_version.py --version "${{ matrix.version }}"
-          "entries=$entries" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          pip install -e .
+
+      - name: Generate Patch using mini-bc-agent for entry ${{ matrix.entry }}
+        env:
+          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
+          AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+          AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
+          AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
+        run: |
+          python -m bcbench agent mini "${{ matrix.entry }}" --repo-path "${{ steps.setup-env.outputs.nav_clone_path }}"
         shell: pwsh
 
-  evaluate-with-mini-agent:
-    runs-on: windows-latest
-    needs: environment-setup
-    if: needs.environment-setup.outputs.entries != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        entry: ${{ fromJson(needs.environment-setup.outputs.entries) }}
-    steps:
-      - name: Generate Patch using mini-bcbench-agent for entry ${{ matrix.entry }}
+      - name: Running FAIL to PASS tests to verify the generated patch
         env:
           BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
         run: |
-          cd scripts/python
-
-          # TODO: call the mini agent script here
-          # e.g. python mini_bcbench_agent.py --entry "${{ matrix.entry }}"
-
-      - name: Running FAIL to PASS tests to verify the generated patch
-        run: |
           cd scripts/powershell
-          .\Evaluate.ps1 -InstanceID "${{ matrix.entry }}"
+          .\Evaluate.ps1 -InstanceID "${{ matrix.entry }}" -NavClonePath "${{ steps.setup-env.outputs.nav_clone_path }}"
         shell: pwsh
