@@ -11,7 +11,7 @@ from typing_extensions import Annotated
 from bcbench.core.logger import get_logger
 from bcbench.core.utils import DATASET_PATH, DATASET_SCHEMA_PATH
 from bcbench.dataset.dataset_loader import load_dataset_entries
-from bcbench.dataset.validate_schema import validate_entries
+from bcbench.dataset.validate_schema import validate_entries, ValidationResult
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ def validate_dataset(
     schema_path: Annotated[Path, typer.Option(help="Path to schema file")] = DATASET_SCHEMA_PATH,
 ):
     """Validate all entries in the dataset against the JSON schema."""
-    results = validate_entries(dataset_path, schema_path)
+    results: list[ValidationResult] = validate_entries(dataset_path, schema_path)
     failures = [r for r in results if not r.success]
 
     logger.info(f"Total: {len(results)}, Success: {len(results) - len(failures)}, Failed: {len(failures)}")

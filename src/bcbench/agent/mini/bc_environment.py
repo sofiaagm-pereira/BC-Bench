@@ -1,13 +1,12 @@
 import subprocess
 import os
-import logging
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 from minisweagent.environments.local import LocalEnvironment, LocalEnvironmentConfig
-from bcbench.core.utils import colored, GREY
+from bcbench.core.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -41,12 +40,12 @@ class BCEnvironment(LocalEnvironment):
             return self._execute_powershell(command, cwd, timeout)
 
     def _bc_build(self, command: str, cwd: str, timeout: int | None) -> dict[str, Any]:
-        logger.debug(f"Executing command: {command}")
         parts = command.split(maxsplit=1)
         if len(parts) < 2:
             return {"returncode": 1, "output": "Error: bc_build requires a project path. Usage: bc_build <project_path>"}
 
         project_path = parts[1].strip()
+        logger.info(f"Building project: {project_path}")
 
         if self.config.project_paths and project_path not in self.config.project_paths:
             return {"returncode": 1, "output": f"Error: Project path '{project_path}' is not in the allowed project_paths list: {self.config.project_paths}"}
@@ -72,7 +71,6 @@ Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProj
         return self._execute_powershell(ps_script, cwd or self.config.cwd, timeout, log_command=False)
 
     def _bc_test(self, command: str, cwd: str, timeout: int | None) -> dict[str, Any]:
-        logger.debug(f"Executing command: {command}")
         parts = command.split(maxsplit=2)
         if len(parts) < 2:
             return {"returncode": 1, "output": "Error: bc_test requires a codeunit ID. Usage: bc_test <codeunit_id> [function1,function2,...]"}
@@ -89,8 +87,10 @@ Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProj
         if function_names:
             function_array = ", ".join([f"'{fn}'" for fn in function_names])
             function_param = f"-functionNames @({function_array})"
+            logger.info(f"Running tests: codeunit {codeunit_id}, functions: {', '.join(function_names)}")
         else:
             function_param = ""
+            logger.info(f"Running all tests in codeunit {codeunit_id}")
 
         # Get the path to AppUtils module (relative to this script)
         script_dir = Path(__file__).parent
@@ -118,7 +118,10 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
         working_dir: str = cwd or self.config.cwd or os.getcwd()
 
         if log_command:
-            logger.debug(f"Executing command: `{colored(command, GREY)}`")
+            command_preview: str = command if len(command) <= 100 else command[:97] + "..."
+            logger.info(f"Executing:\n{command_preview}")
+            if len(command) > 100:
+                logger.debug(f"Full command: {command}")
 
         try:
             result = subprocess.run(
@@ -133,10 +136,20 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
             output_lines: list[str] = output_stripped.split("\n")
             line_count: int = len(output_lines)
 
-            if line_count <= 6:
-                logger.debug(colored(f"Output:\n{output_stripped}", GREY))
+            # At INFO level: show return code and line count for successful commands, first 3 lines for errors
+            if result.returncode == 0:
+                logger.info(f"Command succeeded ({line_count} lines of output)")
             else:
-                logger.debug(colored(f"Output ({line_count} lines, showing first/last 3):\n{'\n'.join(output_lines[:3])}\n... (other lines omitted) ...\n{'\n'.join(output_lines[-3:])}", GREY))
+                logger.info(f"Command failed with exit code {result.returncode}")
+                if line_count > 0:
+                    preview_lines = min(3, line_count)
+                    logger.info(f"Error output (first {preview_lines} lines):\n{'\n'.join(output_lines[:preview_lines])}")
+
+            # At DEBUG level: show full output (truncated if too long)
+            if line_count <= 10:
+                logger.debug(f"Full output:\n{output_stripped}")
+            else:
+                logger.debug(f"Full output ({line_count} lines, showing first/last 5):\n{'\n'.join(output_lines[:5])}\n... ({line_count - 10} lines omitted) ...\n{'\n'.join(output_lines[-5:])}")
 
             return {"returncode": result.returncode, "output": output_stripped}
 

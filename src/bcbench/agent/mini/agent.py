@@ -5,13 +5,11 @@ import re
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
-import typer
 import yaml
 from dotenv import load_dotenv
 
 from bcbench.dataset.dataset_entry import DatasetEntry
 from bcbench.dataset.dataset_loader import load_dataset_entries
-from bcbench.core.utils import colored, GREY
 from bcbench.core.logger import get_logger
 
 load_dotenv()
@@ -30,17 +28,23 @@ def _create_bc_agent_class():
     from minisweagent.agents.default import DefaultAgent, FormatError
 
     class BCAgent(DefaultAgent):
-        """BC-specific agent extending DefaultAgent."""
-
         def query(self) -> dict:
-            """Query the model with current messages."""
-            logger.debug(f"============================ Current step: {self.model.n_calls} =============================")
+            """Overwrite for logging"""
+            if self.model.n_calls + 1 < self.config.step_limit:
+                logger.info(f"Step {self.model.n_calls + 1}")
             return super().query()
 
         def parse_action(self, response: dict) -> dict:
-            """Parse the action from the message. Returns the action."""
-            logger.debug(f"Agent response content:\n{colored(response['content'], GREY)}")
-            actions = re.findall(r"```powershell\s*\n(.*?)\n```", response["content"], re.DOTALL)
+            """Overwrite for logging and switching from bash to powershell"""
+            response_content: str = response["content"]
+            if len(response_content) <= 200:
+                logger.info(f"Agent response:\n{response_content}")
+            else:
+                logger.info(f"Agent response ({len(response_content)} chars):\n{response_content[:197]}...")
+
+            logger.debug(f"Full agent response:\n{response_content}")
+
+            actions = re.findall(r"```powershell\s*\n(.*?)\n```", response_content, re.DOTALL)
             if len(actions) == 1:
                 return {"action": actions[0].strip(), **response}
             raise FormatError(self.render_template(self.config.format_error_template, actions=actions))
@@ -50,8 +54,7 @@ def _create_bc_agent_class():
 
 def run_mini_agent(
     dataset_path: Path,
-    entry_id: Optional[str],
-    version: Optional[str],
+    entry_id: str,
     repo_path: Path,
     use_container: bool = False,
     container_name: Optional[str] = None,
@@ -60,67 +63,30 @@ def run_mini_agent(
     step_limit: int = 20,
     cost_limit: float = 1.0,
 ) -> None:
-    if not entry_id and not version:
-        logger.error("Must specify either --entry-id or --version")
-        raise typer.Exit(code=1)
+    """Run mini-bc-agent on a single dataset entry."""
+    if use_container and not container_name:
+        raise ValueError("container_name is required when use_container is True")
 
-    if entry_id and version:
-        logger.error("Cannot specify both --entry-id and --version")
-        raise typer.Exit(code=1)
+    if use_container and not password:
+        password = os.environ.get("BC_CONTAINER_PASSWORD")
+        if not password:
+            raise ValueError("Password required when use_container is True. Set password or BC_CONTAINER_PASSWORD env var")
 
-    if use_container:
-        if not container_name:
-            logger.error("--container-name is required when using --use-container")
-            raise typer.Exit(code=1)
+    entry = load_dataset_entries(dataset_path, entry_id=entry_id)[0]
+    logger.info(f"Running mini-bc-agent on: {entry.instance_id}")
 
-        if password is None:
-            password = os.environ.get("BC_CONTAINER_PASSWORD")
-            if password is None:
-                logger.error("Password required when using --use-container. Set --password or BC_CONTAINER_PASSWORD env var")
-                raise typer.Exit(code=1)
+    _run_single_entry(
+        entry=entry,
+        repo_path=repo_path,
+        use_container=use_container,
+        container_name=container_name or "",
+        username=username,
+        password=password or "",
+        step_limit=step_limit,
+        cost_limit=cost_limit,
+    )
 
-    try:
-        entries = load_dataset_entries(dataset_path, entry_id=entry_id, version=version)
-    except ValueError as exc:
-        logger.error(str(exc))
-        raise typer.Exit(code=1)
-    except Exception as exc:
-        logger.error(f"Failed to load dataset entries: {exc}")
-        raise typer.Exit(code=1)
-
-    logger.info(f"Loaded {len(entries)} entry(ies) to process")
-
-    results = []
-    failed_count = 0
-
-    for idx, entry in enumerate(entries, 1):
-        logger.info(f"Processing entry {idx}/{len(entries)}: {entry.instance_id}")
-
-        try:
-            _run_single_entry(
-                entry=entry,
-                repo_path=repo_path,
-                container_name=container_name or "",
-                username=username,
-                password=password or "",
-                skip_env=use_container,
-                step_limit=step_limit,
-                cost_limit=cost_limit,
-            )
-
-            results.append({"instance_id": entry.instance_id, "status": "success"})
-            logger.info(f"[OK] Successfully processed {entry.instance_id}")
-
-        except Exception as exc:
-            failed_count += 1
-            error_msg = str(exc)
-            results.append({"instance_id": entry.instance_id, "status": "failed", "error": error_msg})
-            logger.error(f"✗ Failed to process {entry.instance_id}: {error_msg}")
-
-    logger.info(f"\nSummary: {len(results) - failed_count}/{len(entries)} succeeded, {failed_count} failed")
-
-    if failed_count > 0:
-        raise typer.Exit(code=1)
+    logger.info(f"Agent finished after {step_limit} steps")
 
 
 def _run_single_entry(
@@ -129,7 +95,7 @@ def _run_single_entry(
     container_name: str,
     username: str,
     password: str,
-    skip_env: bool,
+    use_container: bool,
     step_limit: int,
     cost_limit: float,
 ) -> None:
@@ -158,12 +124,9 @@ def _run_single_entry(
             password=password,
             project_paths=entry.project_paths,
             cwd=str(repo_path),
-            enable_bc_tools=not skip_env,
+            enable_bc_tools=use_container,
         ),
         **agent_config,
     )
 
     agent.run(task)
-
-    # TODO: Save generated patch to entry_output_dir?
-    logger.info(f"Agent completed for {entry.instance_id} after {agent.model.n_calls} steps")

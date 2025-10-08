@@ -73,9 +73,7 @@ jobs:
           AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
           AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
         run: |
-          python -m bcbench run mini `
-            --version "${{ matrix.version }}" `
+          python -m bcbench evaluate mini "${{ matrix.version }}" `
             --container-name "${{ steps.setup-env.outputs.container_name }}" `
-            --repo-path "${{ steps.setup-env.outputs.nav_clone_path }}" `
-            --output-dir "results"
+            --repo-path "${{ steps.setup-env.outputs.nav_clone_path }}"
         shell: pwsh

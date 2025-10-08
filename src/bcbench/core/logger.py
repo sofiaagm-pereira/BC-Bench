@@ -46,10 +46,9 @@ def setup_logger(verbose: bool = False) -> None:
     if _logging_configured:
         return
 
-    # Suppress mini-swe-agent startup message in CI environments
+    # Suppress mini-swe-agent startup message
     # This prevents encoding errors from emoji characters on Windows
-    if os.environ.get("GITHUB_ACTIONS") or os.environ.get("CI"):
-        os.environ.setdefault("MSWEA_SILENT_STARTUP", "1")
+    os.environ.setdefault("MSWEA_SILENT_STARTUP", "1")
 
     bcbench_level = logging.DEBUG if verbose else logging.INFO
 
@@ -78,15 +77,6 @@ def setup_logger(verbose: bool = False) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger for a specific module.
-
-    Args:
-        name: The name of the module (typically __name__).
-
-    Returns:
-        A configured logger instance.
-    """
     # Ensure name starts with 'bcbench.' for proper hierarchy
     if not name.startswith("bcbench.") and name != "bcbench":
         name = f"bcbench.{name}"

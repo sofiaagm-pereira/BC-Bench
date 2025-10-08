@@ -20,20 +20,6 @@ pip install -e .
 python -m BCBench --help
 ```
 
-```
- BC-Bench: Benchmarking tool for Business Central (AL) ecosystem
-
-╭─ Options ──────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                            │
-╰────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ─────────────────────────────────────────────────────────────╮
-│ version    Show bcbench version.                                       │
-│ collect    Collect dataset entries from various sources                │
-│ dataset    Query and analyze dataset                                   │
-│ run        Run benchmarks with various agents                          │
-╰────────────────────────────────────────────────────────────────────────╯
-```
-
 ### Environment Setup
 
 Create a `.env` file in the root directory with required credentials (needed for data collection and agent runs). See [.env.sample](.env.sample) for the template.

@@ -5,18 +5,19 @@ from bcbench.core.utils import (
     strip_html,
     normalize_repo_subpath,
     find_project_paths_from_patch,
-    colored,
-    CYAN,
-    GREEN,
-    YELLOW,
-    BLUE,
-    MAGENTA,
-    RED,
-    GREY,
     BC_BENCH_ROOT,
     DATASET_PATH,
     DATASET_SCHEMA_PATH,
     NAV_REPO_PATH,
+)
+from bcbench.core.git_operations import (
+    clean_repo,
+    checkout_commit,
+    apply_patch,
+)
+from bcbench.core.bc_operations import (
+    build_and_publish_projects,
+    run_tests,
 )
 
 
@@ -25,16 +26,13 @@ __all__ = [
     "strip_html",
     "normalize_repo_subpath",
     "find_project_paths_from_patch",
-    "colored",
-    "CYAN",
-    "GREEN",
-    "YELLOW",
-    "BLUE",
-    "MAGENTA",
-    "RED",
-    "GREY",
     "BC_BENCH_ROOT",
     "DATASET_PATH",
     "DATASET_SCHEMA_PATH",
     "NAV_REPO_PATH",
+    "clean_repo",
+    "checkout_commit",
+    "apply_patch",
+    "build_and_publish_projects",
+    "run_tests",
 ]
