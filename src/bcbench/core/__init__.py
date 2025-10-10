@@ -1,15 +1,6 @@
 """Core utilities and shared components for bcbench."""
 
-from bcbench.core.utils import (
-    extract_patches,
-    strip_html,
-    normalize_repo_subpath,
-    find_project_paths_from_patch,
-    BC_BENCH_ROOT,
-    DATASET_PATH,
-    DATASET_SCHEMA_PATH,
-    NAV_REPO_PATH,
-)
+from bcbench.core.utils import extract_patches, strip_html, normalize_repo_subpath, find_project_paths_from_patch, BC_BENCH_ROOT, DATASET_PATH, DATASET_SCHEMA_PATH, NAV_REPO_PATH
 from bcbench.core.git_operations import (
     clean_repo,
     checkout_commit,

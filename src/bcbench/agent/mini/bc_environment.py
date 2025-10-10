@@ -1,10 +1,10 @@
 import subprocess
 import os
-from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 from minisweagent.environments.local import LocalEnvironment, LocalEnvironmentConfig
 from bcbench.core.logger import get_logger
+from bcbench.core.bc_operations import build_ps_app_build_and_publish, build_ps_test_script
 
 logger = get_logger(__name__)
 
@@ -17,6 +17,8 @@ class BCEnvironmentConfig(LocalEnvironmentConfig):
     password: str = ""
     project_paths: list[str] = field(default_factory=list)
     enable_bc_tools: bool = True  # Flag to show/hide BC-specific tools from agent
+    version: str = ""
+    timeout: int = 60  # build and test commands can take longer, default to 60 seconds
 
 
 class BCEnvironment(LocalEnvironment):
@@ -52,21 +54,13 @@ class BCEnvironment(LocalEnvironment):
 
         full_project_path = os.path.join(self.config.nav_repo_path, project_path)
 
-        # Get the path to AppUtils module (relative to this script)
-        script_dir = Path(__file__).parent
-        app_utils_path = script_dir.parent.parent.parent / "scripts" / "powershell" / "AppUtils.psm1"
-
-        ps_script = f"""
-Import-Module BcContainerHelper -Force -DisableNameChecking
-Import-Module '{app_utils_path}' -Force
-$ErrorActionPreference = 'Stop'
-
-$projectPath = '{full_project_path}'
-$password = ConvertTo-SecureString '{self.config.password}' -AsPlainText -Force
-$credential = New-Object System.Management.Automation.PSCredential('{self.config.username}', $password)
-
-Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProjectFolder $projectPath -credential $credential -skipVerification -useDevEndpoint
-"""
+        ps_script = build_ps_app_build_and_publish(
+            container_name=self.config.container_name,
+            username=self.config.username,
+            password=self.config.password,
+            project_path=full_project_path,
+            version=self.config.version,
+        )
 
         return self._execute_powershell(ps_script, cwd or self.config.cwd, timeout, log_command=False)
 
@@ -85,28 +79,17 @@ Invoke-AppBuildAndPublish -containerName '{self.config.container_name}' -appProj
             function_names = [f.strip() for f in parts[2].split(",")]
 
         if function_names:
-            function_array = ", ".join([f"'{fn}'" for fn in function_names])
-            function_param = f"-functionNames @({function_array})"
             logger.info(f"Running tests: codeunit {codeunit_id}, functions: {', '.join(function_names)}")
         else:
-            function_param = ""
             logger.info(f"Running all tests in codeunit {codeunit_id}")
 
-        # Get the path to AppUtils module (relative to this script)
-        script_dir = Path(__file__).parent
-        app_utils_path = script_dir.parent.parent.parent / "scripts" / "powershell" / "AppUtils.psm1"
-
-        ps_script = f"""
-Import-Module BcContainerHelper -Force -DisableNameChecking
-Import-Module '{app_utils_path}' -Force
-$ErrorActionPreference = 'Stop'
-
-$password = ConvertTo-SecureString '{self.config.password}' -AsPlainText -Force
-$credential = New-Object System.Management.Automation.PSCredential('{self.config.username}', $password)
-
-Write-Host "Running tests for codeunit {codeunit_id}"
-Invoke-BCTest -containerName '{self.config.container_name}' -credential $credential -codeunitID {codeunit_id} {function_param}
-"""
+        ps_script = build_ps_test_script(
+            container_name=self.config.container_name,
+            username=self.config.username,
+            password=self.config.password,
+            codeunit_id=codeunit_id,
+            function_names=function_names if function_names else None,
+        )
 
         return self._execute_powershell(ps_script, cwd or self.config.cwd, timeout, log_command=False)
 
@@ -118,6 +101,7 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
         working_dir: str = cwd or self.config.cwd or os.getcwd()
 
         if log_command:
+            # Sensitive data redaction is now handled automatically by the logging filter
             command_preview: str = command if len(command) <= 100 else command[:97] + "..."
             logger.info(f"Executing:\n{command_preview}")
             if len(command) > 100:
@@ -168,6 +152,7 @@ Invoke-BCTest -containerName '{self.config.container_name}' -credential $credent
                 "nav_repo_path": self.config.nav_repo_path,
                 "project_paths": self.config.project_paths,
                 "bc_tools_enabled": self.config.enable_bc_tools,
+                "version": self.config.version,
             }
         )
 

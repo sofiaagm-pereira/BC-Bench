@@ -20,7 +20,7 @@ param(
     [SecureString]$Password
 )
 
-Write-Log "Verifying FAIL to PASS tests for version $Version, Dataset Path: $DatasetPath ..." -Level Info
+Write-Log "Verifying projects build and tests run for version $Version, in $DatasetPath ..." -Level Info
 
 [PSCredential]$credential = Get-BCCredential -Username $Username -Password $Password
 
@@ -59,7 +59,7 @@ Import-Module BcContainerHelper -Force -DisableNameChecking
 [ValidationResult[]]$validationResults = @()
 
 foreach ($entry in $versionEntries) {
-    Write-Log "Verifying FAIL to PASS tests for entry: $($entry.instance_id)" -Level Info
+    Write-Log "Verifying entry: $($entry.instance_id)" -Level Info
 
     try {
         Push-Location $NAVClonePath
@@ -84,6 +84,9 @@ foreach ($entry in $versionEntries) {
         Write-Log "[Test Patch Only] Running FAIL_TO_PASS tests for $($entry.instance_id)" -Level Info
         Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.FAIL_TO_PASS -expectation 'Fail'
 
+        Write-Log "[Test Patch Only] Running PASS_TO_PASS tests for $($entry.instance_id)" -Level Info
+        Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.PASS_TO_PASS -expectation 'Pass'
+
         Write-Log "Applying gold patch for $($entry.instance_id)" -Level Info
         Invoke-GitApplyPatch -PatchContent $entry.patch -PatchId $entry.instance_id
 
@@ -99,8 +102,11 @@ foreach ($entry in $versionEntries) {
         Write-Log "[Gold Patch Applied] Running FAIL_TO_PASS tests for $($entry.instance_id)" -Level Info
         Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.FAIL_TO_PASS -expectation 'Pass'
 
+        Write-Log "[Gold Patch Applied] Running PASS_TO_PASS tests for $($entry.instance_id)" -Level Info
+        Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.PASS_TO_PASS -expectation 'Pass'
+
         Write-Log "[Gold Patch Applied] Tests passed successfully" -Level Success
-        $validationResults += [ValidationResult]::new($entry.instance_id, "Passed", "All tests passed after applying patch")
+        $validationResults += [ValidationResult]::new($entry.instance_id, "Passed", "")
     }
     catch {
         Write-Log "Exception while verifying $($entry.instance_id): $($_.Exception.Message)" -Level Error
@@ -120,8 +126,8 @@ function Show-ValidationResults {
         [ValidationResult[]]$Results
     )
 
-    Write-Host "`n" -NoNewline
-    Write-Log "=== FAIL to PASS Verification Summary ===" -Level Info
+    Write-Host "`n`n" -NoNewline
+    Write-Log "========= Dataset Verification Summary =========" -Level Info
 
     [int] $successCount = ($Results | Where-Object { $_.Status -eq "Passed" }).Count
     [int] $failureCount = ($Results | Where-Object { $_.Status -eq "Failed" }).Count
@@ -130,23 +136,48 @@ function Show-ValidationResults {
     Write-Log "Successful verifications: $successCount" -Level Success
     Write-Log "Failed verifications: $failureCount" -Level $(if ($failureCount -gt 0) { "Error" } else { "Info" })
 
-    if ($env:RUNNER_DEBUG -eq '1') {
-        Write-Host "`n" -NoNewline
-        Write-Log "Detailed Results:" -Level Warning
-        $Results | Format-Table -Property InstanceId, Status, Message -AutoSize
+    $Results | Where-Object { $_.Status -eq "Failed" } | ForEach-Object {
+        if ($env:CI) {
+            Write-Host "::error title=Dataset Verification::Instance ID: $($_.InstanceId) - Message: $($_.Message)"
+        } else {
+            Write-Log "Instance ID: $($_.InstanceId) - Message: $($_.Message)" -Level Error
+        }
+    }
+
+
+
+    if ($env:GITHUB_STEP_SUMMARY) {
+        Write-Log "Writing results to GitHub Actions job summary" -Level Info
+
+        $summary = @"
+Total entries processed: $($Results.Count)
+- Successful verifications: $successCount :white_check_mark:
+- Failed verifications: $failureCount $(if ($failureCount -gt 0) { ':x:' } else { ':white_check_mark:' })
+
+## Detailed Results
+
+| Instance ID | Status | Message |
+|-------------|--------|---------|
+"@
+
+        foreach ($result in $Results) {
+            $statusIcon = if ($result.Status -eq "Passed") { ":white_check_mark:" } else { ":x:" }
+            $summary += "`n| ``$($result.InstanceId)`` | $statusIcon $($result.Status) | $($result.Message) |"
+        }
+
+        $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
     }
 
     return $failureCount
 }
 
-# Show results and get failure count
 [int] $failureCount = Show-ValidationResults -Results $validationResults
 
 # Exit with appropriate code
 if ($failureCount -gt 0) {
-    Write-Log "FAIL to PASS verification completed with failures" -Level Error
+    Write-Log "Dataset Verification completed with failures" -Level Error
     exit 1
 } else {
-    Write-Log "FAIL to PASS verification completed successfully" -Level Success
+    Write-Log "Dataset Verification completed successfully" -Level Success
     exit 0
 }

@@ -6,6 +6,9 @@ permissions:
 on:
   workflow_dispatch:
 
+env:
+  EVALUATION_RESULTS_DIR: evaluation_results
+
 jobs:
   get-entries:
     runs-on: windows-latest
@@ -37,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.get-entries.outputs.versions) }}
+        version: ${{ fromJson(needs.get-entries.outputs.versions) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,5 +78,45 @@ jobs:
         run: |
           python -m bcbench evaluate mini "${{ matrix.version }}" `
             --container-name "${{ steps.setup-env.outputs.container_name }}" `
-            --repo-path "${{ steps.setup-env.outputs.nav_clone_path }}"
+            --repo-path "${{ steps.setup-env.outputs.nav_clone_path }}" `
+            --output-dir "${{ env.EVALUATION_RESULTS_DIR }}" `
+            --run-id ${{ github.run_id }} `
+            --step-limit 50 `
+            --enable-bc-tools
+        shell: pwsh
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-results-${{ github.run_id }}-${{ matrix.version }}
+          path: "${{ env.EVALUATION_RESULTS_DIR }}/"
+          retention-days: 30
+
+  summarize-results:
+    runs-on: windows-latest
+    needs: evaluate-with-mini-agent
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install bcbench package
+        run: |
+          pip install -e .
+
+      - name: Download all evaluation results
+        uses: actions/download-artifact@v4
+        with:
+          path: "${{ env.EVALUATION_RESULTS_DIR }}/"
+          merge-multiple: true
+
+      - name: Summarize evaluation results
+        run: |
+          python -m bcbench evaluate summarize ${{ github.run_id }}
         shell: pwsh
