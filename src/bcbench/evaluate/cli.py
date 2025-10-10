@@ -77,6 +77,7 @@ def evaluate_mini(
                     password=password,
                     step_limit=step_limit,
                     cost_limit=cost_limit,
+                    output_dir=run_dir,
                 )
 
             # TODO: Extract run detailed from agent (metrics to be discussed)

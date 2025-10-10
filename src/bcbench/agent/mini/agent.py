@@ -40,7 +40,7 @@ def _create_bc_agent_class():
             if len(response_content) <= 200:
                 logger.info(f"Agent response:\n{response_content}")
             else:
-                logger.info(f"Agent response (truncated from {len(response_content)} chars for readability):\n{response_content[:197]}...")
+                logger.info(f"Agent response (truncated from {len(response_content)} chars):\n{response_content[:197]}...")
 
             logger.debug(f"Full agent response:\n{response_content}")
 
@@ -62,6 +62,7 @@ def run_mini_agent(
     password: Optional[str] = None,
     step_limit: int = 20,
     cost_limit: float = 1.0,
+    output_dir: Path | None = None,
 ) -> None:
     """Run mini-bc-agent on a single dataset entry."""
     if enable_bc_tools and not container_name:
@@ -85,6 +86,7 @@ def run_mini_agent(
 
     # Lazy import and create agent
     from minisweagent.models.litellm_model import LitellmModel
+    from minisweagent.run.utils.save import save_traj
     from bcbench.agent.mini.bc_environment import BCEnvironment
 
     BCAgent = _create_bc_agent_class()
@@ -104,6 +106,9 @@ def run_mini_agent(
         **agent_config,
     )
 
-    agent.run(task)
+    exit_status, result = agent.run(task)
+    if output_dir:
+        traj_file: Path = output_dir / f"{entry.instance_id}.json"
+        save_traj(agent, traj_file, exit_status=exit_status, result=result)
 
     logger.info(f"mini-bc-agent run complete for: {entry.instance_id} after {agent.model.n_calls} steps")

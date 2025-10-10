@@ -41,13 +41,18 @@ agent:
 
     Follow these steps iteratively:
 
+    1. **Familiarize**: Understand the codebase structure and AL syntax
+       - Explore the repository structure to understand project organization
+       - Read existing AL files to understand coding patterns and conventions
+       - Study AL syntax, keywords, and language-specific constructs (objects, procedures, triggers, etc.)
+       - Identify naming conventions, indentation styles, and code organization used in the project
     1. **Analyze**: Find and read relevant files in the codebase
+    1. **Diagnose**: Identify the root cause of the issue
     1. **Implement**: Edit the source code to resolve the issue
     {% if bc_tools_enabled %}
     1. **Verify**: Build the project to confirm the code compiles and runs
     1. **Test (optional)**: If you feel it would help, create a NEW test file to reproduce the issue
     {% endif %}
-    1. **Validate**: Read your changes to confirm it has considered edge cases
     1. **Submit**: Execute `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT` when complete
        - This must be a standalone command
        - After submission, you can NOT continue working on this task

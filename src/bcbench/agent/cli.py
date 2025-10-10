@@ -27,6 +27,7 @@ def run_mini(
     password: Annotated[Optional[str], typer.Option(help="Password for BC container (or set BC_CONTAINER_PASSWORD env var)")] = None,
     step_limit: Annotated[int, typer.Option(help="Maximum number of agent steps")] = 20,
     cost_limit: Annotated[float, typer.Option(help="Maximum cost limit for agent")] = 1.0,
+    output_dir: Annotated[Optional[Path], typer.Option(help="Directory to save output result")] = None,
 ):
     """
     Run mini-bc-agent on a single dataset entry (for local testing).
@@ -47,4 +48,5 @@ def run_mini(
         password=password,
         step_limit=step_limit,
         cost_limit=cost_limit,
+        output_dir=output_dir,
     )

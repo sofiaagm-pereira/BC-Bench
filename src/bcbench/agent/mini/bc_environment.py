@@ -18,7 +18,7 @@ class BCEnvironmentConfig(LocalEnvironmentConfig):
     project_paths: list[str] = field(default_factory=list)
     enable_bc_tools: bool = True  # Flag to show/hide BC-specific tools from agent
     version: str = ""
-    timeout: int = 60  # build and test commands can take longer, default to 60 seconds
+    timeout: int = 120  # build and test commands can take longer, default to 120 seconds
 
 
 class BCEnvironment(LocalEnvironment):
