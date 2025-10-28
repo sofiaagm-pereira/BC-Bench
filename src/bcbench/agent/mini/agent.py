@@ -43,8 +43,6 @@ def _create_bc_agent_class():
             else:
                 logger.info(f"Agent response (truncated from {len(response_content)} chars):\n{response_content[:197]}...")
 
-            logger.debug(f"Full agent response:\n{response_content}")
-
             actions = re.findall(r"```powershell\s*\n(.*?)\n```", response_content, re.DOTALL)
             if len(actions) == 1:
                 return {"action": actions[0].strip(), **response}
