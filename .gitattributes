@@ -1,0 +1,16 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force LF line endings for text files in the repository
+*.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+
+# Force CRLF for PowerShell scripts (Windows-specific)
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
