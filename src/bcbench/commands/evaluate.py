@@ -1,6 +1,5 @@
 """CLI commands for evaluating agents on benchmark datasets."""
 
-import os
 import shutil
 from pathlib import Path
 
@@ -8,12 +7,13 @@ import typer
 from typing_extensions import Annotated
 
 from bcbench.agent import run_copilot_agent, run_mini_agent
+from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry, load_dataset_entries
 from bcbench.evaluate import EvaluationContext, run_evaluation_pipeline, summarize_results
 from bcbench.logger import get_logger
-from bcbench.utils import DATASET_PATH, NAV_REPO_PATH
 
 logger = get_logger(__name__)
+_config = get_config()
 
 evaluate_app = typer.Typer(help="Evaluate agents on benchmark datasets")
 
@@ -22,8 +22,8 @@ evaluate_app = typer.Typer(help="Evaluate agents on benchmark datasets")
 def evaluate_mini(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
     container_name: Annotated[str, typer.Option(help="BC container name")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = NAV_REPO_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
+    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
     username: Annotated[str, typer.Option(help="Username for BC container")] = "admin",
     password: Annotated[
         str | None,
@@ -46,10 +46,7 @@ def evaluate_mini(
     Example:
         bcbench evaluate mini microsoftInternal__NAV-210528 --container-name bcserver
     """
-    if not password:
-        password = os.environ.get("BC_CONTAINER_PASSWORD")
-        if not password:
-            raise ValueError("Password required. Set password or BC_CONTAINER_PASSWORD env var")
+    password = _config.resolve_password(password)
 
     entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
     entry: DatasetEntry = entries[0]
@@ -100,8 +97,8 @@ def evaluate_mini(
 def evaluate_copilot(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
     container_name: Annotated[str, typer.Option(help="BC container name")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = NAV_REPO_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
+    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
     username: Annotated[str, typer.Option(help="Username for BC container")] = "admin",
     password: Annotated[
         str | None,
@@ -118,10 +115,7 @@ def evaluate_copilot(
     Example:
         bcbench evaluate copilot microsoftInternal__NAV-210528 --container-name bcserver
     """
-    if not password:
-        password = os.environ.get("BC_CONTAINER_PASSWORD")
-        if not password:
-            raise ValueError("Password required. Set password or BC_CONTAINER_PASSWORD env var")
+    password = _config.resolve_password(password)
 
     entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
     entry: DatasetEntry = entries[0]

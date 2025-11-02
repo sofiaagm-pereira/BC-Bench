@@ -3,10 +3,11 @@
 import subprocess
 from pathlib import Path
 
+from bcbench.config import get_config
 from bcbench.logger import get_logger
-from bcbench.utils import PS_SCRIPT_PATH
 
 logger = get_logger(__name__)
+_config = get_config()
 
 
 def _build_ps_script_header(app_utils_path: Path) -> str:
@@ -28,7 +29,7 @@ $credential = New-Object System.Management.Automation.PSCredential('{username}',
 
 def build_ps_app_build_and_publish(container_name: str, username: str, password: str, project_path: Path, version: str) -> str:
     """Build complete PowerShell script for app build and publish."""
-    app_utils_path = PS_SCRIPT_PATH / "AppUtils.psm1"
+    app_utils_path = _config.paths.ps_script_path / "AppUtils.psm1"
 
     return (
         _build_ps_script_header(app_utils_path)
@@ -47,7 +48,7 @@ def build_ps_test_script(
     function_names: list[str] | None = None,
 ) -> str:
     """Build complete PowerShell script for running tests."""
-    app_utils_path = PS_SCRIPT_PATH / "AppUtils.psm1"
+    app_utils_path = _config.paths.ps_script_path / "AppUtils.psm1"
 
     if function_names:
         function_array = ", ".join([f"'{fn}'" for fn in function_names])
@@ -71,7 +72,7 @@ def build_ps_dataset_tests_script(
     expectation: str,
 ) -> str:
     """Build complete PowerShell script for running dataset tests."""
-    app_utils_path = PS_SCRIPT_PATH / "AppUtils.psm1"
+    app_utils_path = _config.paths.ps_script_path / "AppUtils.psm1"
 
     return (
         _build_ps_script_header(app_utils_path)

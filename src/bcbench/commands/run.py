@@ -7,12 +7,13 @@ from typing_extensions import Annotated
 
 from bcbench.agent.copilot import run_copilot_agent
 from bcbench.agent.mini import run_mini_agent
+from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry, load_dataset_entries
 from bcbench.logger import get_logger
 from bcbench.operations import checkout_commit, clean_repo
-from bcbench.utils import DATASET_PATH, NAV_REPO_PATH
 
 logger = get_logger(__name__)
+_config = get_config()
 
 run_app = typer.Typer(help="Run agents on single dataset entry")
 
@@ -20,8 +21,8 @@ run_app = typer.Typer(help="Run agents on single dataset entry")
 @run_app.command("mini")
 def run_mini(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = NAV_REPO_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
+    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
     enable_bc_tools: Annotated[
         bool,
         typer.Option(help="Whether to enable BC tools for the agent (build and test)"),
@@ -65,8 +66,8 @@ def run_mini(
 @run_app.command("copilot")
 def run_copilot(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = NAV_REPO_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
+    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
     output_dir: Annotated[Path | None, typer.Option(help="Directory to save output result")] = None,
 ):
     """

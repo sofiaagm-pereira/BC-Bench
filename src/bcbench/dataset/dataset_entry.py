@@ -6,13 +6,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, TypedDict
 
+from bcbench.config import get_config
 from bcbench.logger import get_logger
 from bcbench.operations import extract_patches
-from bcbench.utils import (
-    NAV_REPO_PATH,
-    find_project_paths_from_patch,
-    strip_html,
-)
+from bcbench.utils import find_project_paths_from_patch, strip_html
 
 __all__ = ["DatasetEntry"]
 
@@ -131,10 +128,11 @@ class DatasetEntry:
 
 def _determine_environment_setup_version(commit: str) -> str:
     """Determine the appropriate environment setup version based on commit availability in release branches."""
+    config = get_config()
 
     result = subprocess.run(
         ["git", "show", "master:Directory.App.Props.json"],
-        cwd=NAV_REPO_PATH,
+        cwd=config.paths.nav_repo_path,
         capture_output=True,
         text=True,
         check=True,
@@ -161,7 +159,7 @@ def _determine_environment_setup_version(commit: str) -> str:
                     "--quiet",
                     f"refs/remotes/origin/{branch_name}",
                 ],
-                cwd=NAV_REPO_PATH,
+                cwd=config.paths.nav_repo_path,
                 capture_output=True,
             )
 
@@ -174,7 +172,7 @@ def _determine_environment_setup_version(commit: str) -> str:
                         commit,
                         f"origin/{branch_name}",
                     ],
-                    cwd=NAV_REPO_PATH,
+                    cwd=config.paths.nav_repo_path,
                     capture_output=True,
                 )
 

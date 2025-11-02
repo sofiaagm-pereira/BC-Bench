@@ -1,12 +1,12 @@
 """Mini BC Agent implementation using mini-swe-agent."""
 
-import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
 
+from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.logger import get_logger
 
@@ -60,17 +60,11 @@ def run_mini_agent(
 ) -> None:
     """Run mini-bc-agent on a single dataset entry."""
     if enable_bc_tools:
-        from dotenv import load_dotenv
-
-        load_dotenv()
-
         if not container_name:
             raise ValueError("container_name is required when enable_bc_tools is True")
 
-        if not password:
-            password = os.environ.get("BC_CONTAINER_PASSWORD")
-            if not password:
-                raise ValueError("Password required when enable_bc_tools is True. Set password or BC_CONTAINER_PASSWORD env var")
+        config = get_config()
+        password = config.resolve_password(password)
 
     logger.info(f"Running mini-bc-agent on: {entry.instance_id}")
 

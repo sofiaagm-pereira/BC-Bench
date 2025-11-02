@@ -6,21 +6,23 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
+from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.dataset.dataset_loader import load_dataset_entries
 from bcbench.dataset.validate_schema import ValidationResult, validate_entries
 from bcbench.logger import get_logger
-from bcbench.utils import DATASET_PATH, DATASET_SCHEMA_PATH, write_github_output
+from bcbench.utils import write_github_output
 
 logger = get_logger(__name__)
+_config = get_config()
 
 dataset_app = typer.Typer(help="Query and analyze dataset")
 
 
 @dataset_app.command("validate")
 def validate_dataset(
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
-    schema_path: Annotated[Path, typer.Option(help="Path to schema file")] = DATASET_SCHEMA_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
+    schema_path: Annotated[Path, typer.Option(help="Path to schema file")] = _config.paths.dataset_schema_path,
 ):
     """Validate all entries in the dataset against the JSON schema."""
     results: list[ValidationResult] = validate_entries(dataset_path, schema_path)
@@ -36,7 +38,7 @@ def validate_dataset(
 
 @dataset_app.command("versions")
 def list_versions(
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
     github_output: Annotated[
         str | None,
         typer.Option(
@@ -59,7 +61,7 @@ def list_versions(
 
 @dataset_app.command("list")
 def list_entries(
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
     github_output: Annotated[
         str | None,
         typer.Option(
@@ -113,7 +115,7 @@ def list_entries(
 @dataset_app.command("view")
 def view_entry(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to view")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = DATASET_PATH,
+    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
     show_patch: Annotated[bool, typer.Option(help="Show patch in output")] = False,
 ):
     """View a specific dataset entry with rich formatting."""

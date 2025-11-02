@@ -1,19 +1,15 @@
 import base64
-import os
 from pathlib import Path
 from typing import Any
 
 import requests
 import typer
-from dotenv import load_dotenv
 
-from bcbench.dataset.dataset_entry import DatasetEntry
+from bcbench.config import get_config
+from bcbench.dataset import DatasetEntry
 from bcbench.logger import get_logger
 
 logger = get_logger(__name__)
-
-
-load_dotenv()
 
 
 def collect_nav_entry(
@@ -22,17 +18,17 @@ def collect_nav_entry(
     repo_path: Path,
     diff_path: str = "",
 ) -> None:
-    if not os.getenv("ADO_TOKEN"):
-        raise ValueError("ADO_TOKEN environment variable is required")
+    config = get_config()
+    ado_token = config.resolve_ado_token()
 
     try:
         logger.info("Collecting dataset entry for PR #%s", pr_number)
 
-        pr_data: dict[str, Any] = _get_pr_info(pr_number)
-        work_item_data: dict[str, Any] = _get_work_item_info(pr_data)
+        pr_data: dict[str, Any] = _get_pr_info(pr_number, ado_token)
+        work_item_data: dict[str, Any] = _get_work_item_info(pr_data, ado_token)
 
         commit_id: str = pr_data["lastMergeSourceCommit"]["commitId"]
-        commit_data: dict[str, Any] = _get_commit_info(commit_id)
+        commit_data: dict[str, Any] = _get_commit_info(commit_id, ado_token)
         parents: list[str] = commit_data.get("parents", [])
         if len(parents) != 1:
             raise ValueError("Commit has multiple parents, cannot determine base commit.")
@@ -60,10 +56,9 @@ def collect_nav_entry(
     logger.info(f"Saved dataset entry {entry.instance_id} to {output}")
 
 
-def _get_headers() -> dict[str, str]:
+def _get_headers(ado_token: str) -> dict[str, str]:
     """Get headers for Azure DevOps API requests."""
-    token: str = os.getenv("ADO_TOKEN") or ""
-    token_bytes: bytes = f":{token}".encode("ascii")
+    token_bytes: bytes = f":{ado_token}".encode("ascii")
     token_b64: str = base64.b64encode(token_bytes).decode("ascii")
     return {
         "Authorization": f"Basic {token_b64}",
@@ -71,26 +66,26 @@ def _get_headers() -> dict[str, str]:
     }
 
 
-def _make_ado_git_request(endpoint: str) -> dict[str, Any]:
+def _make_ado_git_request(endpoint: str, ado_token: str) -> dict[str, Any]:
     BASE_URL = "https://dev.azure.com/dynamicssmb2/Dynamics%20SMB/_apis/git/repositories/NAV"
 
     url = f"{BASE_URL}/{endpoint}"
-    response = requests.get(url, headers=_get_headers())
+    response = requests.get(url, headers=_get_headers(ado_token))
     response.raise_for_status()
     return response.json()
 
 
-def _get_pr_info(pr_number: int) -> dict[str, Any]:
+def _get_pr_info(pr_number: int, ado_token: str) -> dict[str, Any]:
     endpoint = f"pullrequests/{pr_number}?api-version=7.1"
-    return _make_ado_git_request(endpoint)
+    return _make_ado_git_request(endpoint, ado_token)
 
 
-def _get_commit_info(commit: str) -> dict[str, Any]:
+def _get_commit_info(commit: str, ado_token: str) -> dict[str, Any]:
     endpoint = f"commits/{commit}?api-version=7.1"
-    return _make_ado_git_request(endpoint)
+    return _make_ado_git_request(endpoint, ado_token)
 
 
-def _get_work_item_info(pr_data: dict[str, Any]) -> dict[str, Any]:
+def _get_work_item_info(pr_data: dict[str, Any], ado_token: str) -> dict[str, Any]:
     work_items = pr_data.get("_links", {}).get("workItems")
     if not work_items or len(work_items) != 1:
         raise ValueError("PR should be linked to exactly one work item.")
@@ -99,13 +94,13 @@ def _get_work_item_info(pr_data: dict[str, Any]) -> dict[str, Any]:
     if not work_item_url:
         raise ValueError("Unable to determine work item URL from PR data.")
 
-    response = requests.get(work_item_url, headers=_get_headers())
+    response = requests.get(work_item_url, headers=_get_headers(ado_token))
     response.raise_for_status()
     work_item_ref = response.json()
 
     if work_item_ref.get("count") == 1:
         work_item_url = work_item_ref["value"][0]["url"]
-        response = requests.get(work_item_url, headers=_get_headers())
+        response = requests.get(work_item_url, headers=_get_headers(ado_token))
         response.raise_for_status()
         return response.json()
     if work_item_ref.get("count", 0) > 1:
@@ -118,7 +113,7 @@ def _get_work_item_info(pr_data: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("Invalid selection.")
 
         work_item_url = work_item_ref["value"][choice - 1]["url"]
-        response = requests.get(work_item_url, headers=_get_headers())
+        response = requests.get(work_item_url, headers=_get_headers(ado_token))
         response.raise_for_status()
         return response.json()
 

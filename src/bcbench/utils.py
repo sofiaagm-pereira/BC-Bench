@@ -2,43 +2,15 @@
 
 from __future__ import annotations
 
-import os
 import re
-import subprocess
 from html import unescape
 from pathlib import Path
 
 from unidiff import PatchSet
 
-
-def _get_git_root() -> Path:
-    """Get the git root directory."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=Path(__file__).parent,
-        )
-        return Path(result.stdout.strip())
-    except subprocess.CalledProcessError:
-        # Fallback to file-based resolution if not in a git repo
-        return Path(__file__).parent.parent.parent.parent
-
-
-# Constants - dynamically resolve BC-Bench root from git root
-_BC_BENCH_ROOT = _get_git_root()
-DATASET_PATH = _BC_BENCH_ROOT / "dataset" / "bcbench_nav.jsonl"
-DATASET_SCHEMA_PATH = _BC_BENCH_ROOT / "dataset" / "schema.json"
-NAV_REPO_PATH = _BC_BENCH_ROOT.parent / "NAV"
-PS_SCRIPT_PATH = _BC_BENCH_ROOT / "scripts"
+from bcbench.config import get_config
 
 __all__ = [
-    "DATASET_PATH",
-    "DATASET_SCHEMA_PATH",
-    "NAV_REPO_PATH",
-    "PS_SCRIPT_PATH",
     "find_project_paths_from_patch",
     "normalize_repo_subpath",
     "strip_html",
@@ -102,5 +74,8 @@ def find_project_paths_from_patch(repo_path: Path, patch: str) -> list[str]:
 
 def write_github_output(key: str, value: str) -> None:
     """Write a value to GitHub Actions output."""
-    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+    config = get_config()
+    if not config.env.github_output:
+        raise ValueError("GITHUB_OUTPUT environment variable not set")
+    with open(config.env.github_output, "a", encoding="utf-8") as f:
         f.write(f"{key}={value}\n")
