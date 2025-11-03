@@ -19,3 +19,9 @@ repos:
       - id: check-case-conflict
       - id: mixed-line-ending
         args: [--fix=auto]
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.9.6
+    hooks:
+      - id: uv-lock
