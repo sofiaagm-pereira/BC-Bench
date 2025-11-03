@@ -111,7 +111,7 @@ def setup_logger(verbose: bool = False) -> None:
     Args:
         verbose: If True, set bcbench loggers to DEBUG level, otherwise INFO.
     """
-    global _logging_configured
+    global _logging_configured  # noqa: PLW0603
 
     if _logging_configured:
         return

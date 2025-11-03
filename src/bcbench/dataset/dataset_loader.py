@@ -50,12 +50,12 @@ def load_dataset_entries(
 
     with open(dataset_path, encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            if not line:
+            striped_line = line.strip()
+            if not striped_line:
                 continue
 
             try:
-                entry = DatasetEntry.from_json(json.loads(line))
+                entry = DatasetEntry.from_json(json.loads(striped_line))
 
                 # If searching for specific entry_id, return immediately when found
                 if entry_id:
