@@ -56,8 +56,6 @@ def evaluate_mini(
     Example:
         bcbench evaluate mini microsoftInternal__NAV-210528 --container-name bcserver
     """
-    password = _config.resolve_password(password)
-
     entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
     entry: DatasetEntry = entries[0]
     logger.info(f"Loaded {entry_id} entry from dataset")
@@ -128,8 +126,6 @@ def evaluate_copilot(
     Example:
         bcbench evaluate copilot microsoftInternal__NAV-210528 --container-name bcserver
     """
-    password = _config.resolve_password(password)
-
     entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
     entry: DatasetEntry = entries[0]
     logger.info(f"Loaded {entry_id} entry from dataset")

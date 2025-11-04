@@ -33,8 +33,8 @@ class BCEnvironment(LocalEnvironment):
         super().__init__(config_class=config_class, **kwargs)
         self.config: BCEnvironmentConfig = self.config
 
-        if (not self.config.container_name) and self.config.enable_bc_tools:
-            raise ConfigurationError("container_name is required in BCEnvironmentConfig when enable_bc_tools is True")
+        if self.config.enable_bc_tools and (not self.config.container_name or not self.config.password):
+            raise ConfigurationError("container_name and password are required in BCEnvironmentConfig when enable_bc_tools is True")
         if not self.config.repo_path:
             raise ConfigurationError("repo_path is required in BCEnvironmentConfig")
 

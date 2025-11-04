@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.exceptions import ConfigurationError
 from bcbench.logger import get_logger
@@ -61,12 +60,8 @@ def run_mini_agent(
     output_dir: Path | None = None,
 ) -> None:
     """Run mini-bc-agent on a single dataset entry."""
-    if enable_bc_tools:
-        if not container_name:
-            raise ConfigurationError("container_name is required when enable_bc_tools is True")
-
-        config = get_config()
-        password = config.resolve_password(password)
+    if enable_bc_tools and (not container_name or not password):
+        raise ConfigurationError("container_name and password are required when enable_bc_tools is True")
 
     logger.info(f"Running mini-bc-agent on: {entry.instance_id}")
 

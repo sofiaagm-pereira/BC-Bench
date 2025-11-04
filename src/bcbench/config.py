@@ -56,9 +56,6 @@ class PathConfig:
 class EnvironmentConfig:
     """Environment-specific configuration."""
 
-    # Business Central
-    bc_container_password: str | None
-
     # Azure DevOps
     ado_token: str | None
 
@@ -72,7 +69,6 @@ class EnvironmentConfig:
     def from_environment(cls) -> EnvironmentConfig:
         """Load configuration from environment variables."""
         return cls(
-            bc_container_password=os.getenv("BC_CONTAINER_PASSWORD"),
             ado_token=os.getenv("ADO_TOKEN"),
             github_output=os.getenv("GITHUB_OUTPUT"),
             github_step_summary=os.getenv("GITHUB_STEP_SUMMARY"),
@@ -95,12 +91,6 @@ class Config:
             paths=PathConfig.from_root(root),
             env=EnvironmentConfig.from_environment(),
         )
-
-    def resolve_password(self, password: str | None = None) -> str:
-        resolved = password or self.env.bc_container_password
-        if not resolved:
-            raise ConfigurationError("Password required. Provide --password or set BC_CONTAINER_PASSWORD env var")
-        return resolved
 
     def resolve_ado_token(self) -> str:
         if not self.env.ado_token:
