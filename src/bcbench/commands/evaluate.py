@@ -7,6 +7,14 @@ import typer
 from typing_extensions import Annotated
 
 from bcbench.agent import run_copilot_agent, run_mini_agent
+from bcbench.cli_options import (
+    ContainerName,
+    ContainerPassword,
+    ContainerUsername,
+    DatasetPath,
+    OutputDir,
+    RepoPath,
+)
 from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry, load_dataset_entries
 from bcbench.evaluate import EvaluationContext, run_evaluation_pipeline, summarize_results
@@ -21,17 +29,14 @@ evaluate_app = typer.Typer(help="Evaluate agents on benchmark datasets")
 @evaluate_app.command("mini")
 def evaluate_mini(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
-    container_name: Annotated[str, typer.Option(help="BC container name")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
-    username: Annotated[str, typer.Option(help="Username for BC container")] = "admin",
-    password: Annotated[
-        str | None,
-        typer.Option(help="Password for BC container (or set BC_CONTAINER_PASSWORD env var)"),
-    ] = None,
+    container_name: ContainerName,
+    dataset_path: DatasetPath = _config.paths.dataset_path,
+    repo_path: RepoPath = _config.paths.nav_repo_path,
+    username: ContainerUsername = "admin",
+    password: ContainerPassword = None,
     step_limit: Annotated[int, typer.Option(help="Maximum number of agent steps")] = 20,
     cost_limit: Annotated[float, typer.Option(help="Maximum cost limit for agent")] = 1.0,
-    output_dir: Annotated[Path, typer.Option(help="Directory to save evaluation results")] = Path("evaluation_results"),
+    output_dir: OutputDir = Path("evaluation_results"),
     run_id: Annotated[str, typer.Option(help="Unique identifier for this evaluation run")] = "mini_test_run",
     enable_bc_tools: Annotated[
         bool,
@@ -101,15 +106,12 @@ def evaluate_mini(
 @evaluate_app.command("copilot")
 def evaluate_copilot(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
-    container_name: Annotated[str, typer.Option(help="BC container name")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
-    username: Annotated[str, typer.Option(help="Username for BC container")] = "admin",
-    password: Annotated[
-        str | None,
-        typer.Option(help="Password for BC container (or set BC_CONTAINER_PASSWORD env var)"),
-    ] = None,
-    output_dir: Annotated[Path, typer.Option(help="Directory to save evaluation results")] = Path("evaluation_results"),
+    container_name: ContainerName,
+    dataset_path: DatasetPath = _config.paths.dataset_path,
+    repo_path: RepoPath = _config.paths.nav_repo_path,
+    username: ContainerUsername = "admin",
+    password: ContainerPassword = None,
+    output_dir: OutputDir = Path("evaluation_results"),
     run_id: Annotated[str, typer.Option(help="Unique identifier for this evaluation run")] = "copilot_test_run",
     include_project_paths: Annotated[
         bool,
@@ -167,7 +169,7 @@ def evaluate_summarize(
         str,
         typer.Argument(help="Unique identifier for the evaluation run to summarize"),
     ],
-    output_dir: Annotated[Path, typer.Option(help="Directory containing evaluation results")] = Path("evaluation_results"),
+    output_dir: OutputDir = Path("evaluation_results"),
     result_pattern: Annotated[str, typer.Option(help="Pattern for the result files")] = "*.jsonl",
 ):
     """

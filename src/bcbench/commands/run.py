@@ -7,6 +7,14 @@ from typing_extensions import Annotated
 
 from bcbench.agent.copilot import run_copilot_agent
 from bcbench.agent.mini import run_mini_agent
+from bcbench.cli_options import (
+    ContainerPassword,
+    ContainerUsername,
+    DatasetPath,
+    OptionalContainerName,
+    OptionalOutputDir,
+    RepoPath,
+)
 from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry, load_dataset_entries
 from bcbench.logger import get_logger
@@ -21,21 +29,18 @@ run_app = typer.Typer(help="Run agents on single dataset entry")
 @run_app.command("mini")
 def run_mini(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
+    dataset_path: DatasetPath = _config.paths.dataset_path,
+    repo_path: RepoPath = _config.paths.nav_repo_path,
     enable_bc_tools: Annotated[
         bool,
         typer.Option(help="Whether to enable BC tools for the agent (build and test)"),
     ] = False,
-    container_name: Annotated[str | None, typer.Option(help="BC container name (required if --use-container)")] = None,
-    username: Annotated[str, typer.Option(help="Username for BC container")] = "admin",
-    password: Annotated[
-        str | None,
-        typer.Option(help="Password for BC container (or set BC_CONTAINER_PASSWORD env var)"),
-    ] = None,
+    container_name: OptionalContainerName = None,
+    username: ContainerUsername = "admin",
+    password: ContainerPassword = None,
     step_limit: Annotated[int, typer.Option(help="Maximum number of agent steps")] = 20,
     cost_limit: Annotated[float, typer.Option(help="Maximum cost limit for agent")] = 1.0,
-    output_dir: Annotated[Path | None, typer.Option(help="Directory to save output result")] = None,
+    output_dir: OptionalOutputDir = None,
 ):
     """
     Run mini-bc-agent on a single entry to generate a patch (without building/testing).
@@ -66,9 +71,9 @@ def run_mini(
 @run_app.command("copilot")
 def run_copilot(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
-    dataset_path: Annotated[Path, typer.Option(help="Path to dataset file")] = _config.paths.dataset_path,
-    repo_path: Annotated[Path, typer.Option(help="Path to NAV repository")] = _config.paths.nav_repo_path,
-    output_dir: Annotated[Path | None, typer.Option(help="Directory to save output result")] = None,
+    dataset_path: DatasetPath = _config.paths.dataset_path,
+    repo_path: RepoPath = _config.paths.nav_repo_path,
+    output_dir: OptionalOutputDir = None,
 ):
     """
     Run GitHub Copilot CLI on a single entry to generate a patch (without building/testing).
