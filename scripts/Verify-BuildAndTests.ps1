@@ -17,7 +17,10 @@ param(
     [string]$RepoPath,
 
     [Parameter(Mandatory=$false)]
-    [string]$Username='admin',
+    [string]$ContainerName = $env::BC_CONTAINER_NAME ?? "bcbench",
+
+    [Parameter(Mandatory=$false)]
+    [string]$Username= $env::BC_CONTAINER_USERNAME ?? "admin",
 
     [Parameter(Mandatory=$false)]
     [SecureString]$Password
@@ -44,7 +47,6 @@ if (-not (Test-Path $RepoPath)) {
 
 Import-Module BcContainerHelper -Force -DisableNameChecking
 
-[string] $containerName = Get-StandardContainerName -Version $Version
 [ValidationResult[]]$validationResults = @()
 
 foreach ($entry in $entries) {
@@ -66,15 +68,15 @@ foreach ($entry in $entries) {
         foreach ($projectPath in $entry.project_paths) {
             [string]$fullProjectPath = Join-Path -Path $RepoPath -ChildPath $projectPath
             Update-AppProjectVersion -ProjectPath $fullProjectPath -Version $Version
-            Invoke-AppBuildAndPublish -containerName $containerName -appProjectFolder $fullProjectPath -credential $credential -skipVerification -useDevEndpoint
+            Invoke-AppBuildAndPublish -containerName $ContainerName -appProjectFolder $fullProjectPath -credential $credential -skipVerification -useDevEndpoint
         }
         Write-Log "[Test Patch Only] Build completed successfully for $($entry.instance_id)" -Level Success
 
         Write-Log "[Test Patch Only] Running FAIL_TO_PASS tests for $($entry.instance_id)" -Level Info
-        Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.FAIL_TO_PASS -expectation 'Fail'
+        Invoke-DatasetTests -containerName $ContainerName -credential $credential -testEntries $entry.FAIL_TO_PASS -expectation 'Fail'
 
         Write-Log "[Test Patch Only] Running PASS_TO_PASS tests for $($entry.instance_id)" -Level Info
-        Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.PASS_TO_PASS -expectation 'Pass'
+        Invoke-DatasetTests -containerName $ContainerName -credential $credential -testEntries $entry.PASS_TO_PASS -expectation 'Pass'
 
         Write-Log "Applying gold patch for $($entry.instance_id)" -Level Info
         Invoke-GitApplyPatch -PatchContent $entry.patch -PatchId $entry.instance_id
@@ -84,15 +86,15 @@ foreach ($entry in $entries) {
         foreach ($projectPath in $entry.project_paths) {
             [string]$fullProjectPath = Join-Path -Path $RepoPath -ChildPath $projectPath
             Update-AppProjectVersion -ProjectPath $fullProjectPath -Version $Version
-            Invoke-AppBuildAndPublish -containerName $containerName -appProjectFolder $fullProjectPath -credential $credential -skipVerification -useDevEndpoint
+            Invoke-AppBuildAndPublish -containerName $ContainerName -appProjectFolder $fullProjectPath -credential $credential -skipVerification -useDevEndpoint
         }
         Write-Log "[Gold Patch Applied] Build completed successfully for $($entry.instance_id)" -Level Success
 
         Write-Log "[Gold Patch Applied] Running FAIL_TO_PASS tests for $($entry.instance_id)" -Level Info
-        Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.FAIL_TO_PASS -expectation 'Pass'
+        Invoke-DatasetTests -containerName $ContainerName -credential $credential -testEntries $entry.FAIL_TO_PASS -expectation 'Pass'
 
         Write-Log "[Gold Patch Applied] Running PASS_TO_PASS tests for $($entry.instance_id)" -Level Info
-        Invoke-DatasetTests -containerName $containerName -credential $credential -testEntries $entry.PASS_TO_PASS -expectation 'Pass'
+        Invoke-DatasetTests -containerName $ContainerName -credential $credential -testEntries $entry.PASS_TO_PASS -expectation 'Pass'
 
         Write-Log "[Gold Patch Applied] Tests passed successfully" -Level Success
         $validationResults += [ValidationResult]::new($entry.instance_id, "Passed", "")

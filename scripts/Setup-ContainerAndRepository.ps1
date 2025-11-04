@@ -16,7 +16,10 @@ param(
     [string]$Country = "w1",
 
     [Parameter(Mandatory=$false)]
-    [string]$Username='admin',
+    [string]$ContainerName = $env::BC_CONTAINER_NAME ?? "bcbench",
+
+    [Parameter(Mandatory=$false)]
+    [string]$Username= $env::BC_CONTAINER_USERNAME ?? "admin",
 
     [Parameter(Mandatory=$false)]
     [SecureString]$Password,
@@ -46,26 +49,25 @@ if (-not $RepoPath) {
 
 Import-Module BcContainerHelper -Force -DisableNameChecking
 
-[string] $containerName = Get-StandardContainerName -Version $Version
-Write-Log "Container name: $containerName" -Level Info
+Write-Log "Container name: $ContainerName" -Level Info
 
 [System.Management.Automation.Job]$containerJob = $null
 
-if (Test-ContainerExists -containerName $containerName) {
-    Write-Log "Container $containerName already exists, reusing it" -Level Warning
+if (Test-ContainerExists -containerName $ContainerName) {
+    Write-Log "Container $ContainerName already exists, reusing it" -Level Warning
 } else {
     try {
-        Write-Log "Creating container $containerName for version $Version..." -Level Info
+        Write-Log "Creating container $ContainerName for version $Version..." -Level Info
 
         # Get BC artifact URL
         [string] $url = Get-BCArtifactUrl -version $Version -Country $Country
         Write-Log "Retrieved artifact URL: $url" -Level Info
 
         # Create container asynchronously with NAV folder shared
-        $containerJob = New-BCContainerAsync -ContainerName $containerName -Version $Version -ArtifactUrl $url -Credential $credential -AdditionalFolders @($RepoPath)
+        $containerJob = New-BCContainerAsync -ContainerName $ContainerName -Version $Version -ArtifactUrl $url -Credential $credential -AdditionalFolders @($RepoPath)
     }
     catch {
-        Write-Log "Failed to start container creation job for $containerName`: $($_.Exception.Message)" -Level Error
+        Write-Log "Failed to start container creation job for $ContainerName`: $($_.Exception.Message)" -Level Error
         exit 1
     }
 }
@@ -99,5 +101,4 @@ if ($containerJob) {
 # Set output for GitHub Actions or return path
 if ($env:GITHUB_OUTPUT) {
     "nav_clone_path=$RepoPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-    "container_name=$containerName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 }

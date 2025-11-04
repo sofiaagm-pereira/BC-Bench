@@ -41,6 +41,10 @@ jobs:
     needs: get-entries
     if: needs.get-entries.outputs.entries != '[]'
     name: ${{ matrix.entry }}
+    env:
+      BC_CONTAINER_NAME: bcbench
+      BC_CONTAINER_USERNAME: admin
+      BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
     strategy:
       fail-fast: false
       max-parallel: 10
@@ -58,7 +62,6 @@ jobs:
       - name: Setup BC container and repository for ${{ matrix.entry }}
         id: setup-env
         env:
-          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
           NAV_REPO_TOKEN: ${{ secrets.NAV_REPO_TOKEN }}
         run: |
           .\scripts\Setup-ContainerAndRepository.ps1 -InstanceId "${{ matrix.entry }}"
@@ -83,7 +86,6 @@ jobs:
 
       - name: Run GitHub Copilot CLI for entry ${{ matrix.entry }}
         env:
-          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
           uv run bcbench evaluate copilot "${{ matrix.entry }}" `

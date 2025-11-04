@@ -55,6 +55,10 @@ jobs:
   verify-build-and-tests:
     runs-on: windows-latest
     needs: validate-schema-and-list-entries
+    env:
+      BC_CONTAINER_NAME: bcbench
+      BC_CONTAINER_USERNAME: admin
+      BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
     if: needs.validate-schema-and-list-entries.outputs.entries != '[]'
     name: ${{ matrix.entry }}
     strategy:
@@ -73,7 +77,6 @@ jobs:
       - name: Setup BC container and repository for ${{ matrix.entry }}
         id: setup-env
         env:
-          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
           NAV_REPO_TOKEN: ${{ secrets.NAV_REPO_TOKEN }}
         run: |
           .\scripts\Setup-ContainerAndRepository.ps1 -InstanceId "${{ matrix.entry }}"
@@ -81,8 +84,6 @@ jobs:
 
       - name: Run build and test verification for ${{ matrix.entry }}
         timeout-minutes: 60
-        env:
-          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
         run: |
           .\scripts\Verify-BuildAndTests.ps1 -InstanceId "${{ matrix.entry }}" -RepoPath "${{ steps.setup-env.outputs.nav_clone_path }}"
         shell: pwsh

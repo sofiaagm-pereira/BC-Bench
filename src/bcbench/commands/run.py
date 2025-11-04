@@ -8,10 +8,10 @@ from typing_extensions import Annotated
 from bcbench.agent.copilot import run_copilot_agent
 from bcbench.agent.mini import run_mini_agent
 from bcbench.cli_options import (
+    ContainerName,
     ContainerPassword,
     ContainerUsername,
     DatasetPath,
-    OptionalContainerName,
     OptionalOutputDir,
     RepoPath,
 )
@@ -29,15 +29,15 @@ run_app = typer.Typer(help="Run agents on single dataset entry")
 @run_app.command("mini")
 def run_mini(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
+    container_name: ContainerName,
+    username: ContainerUsername,
+    password: ContainerPassword,
     dataset_path: DatasetPath = _config.paths.dataset_path,
     repo_path: RepoPath = _config.paths.nav_repo_path,
     enable_bc_tools: Annotated[
         bool,
         typer.Option(help="Whether to enable BC tools for the agent (build and test)"),
     ] = False,
-    container_name: OptionalContainerName = None,
-    username: ContainerUsername = "admin",
-    password: ContainerPassword = None,
     step_limit: Annotated[int, typer.Option(help="Maximum number of agent steps")] = 20,
     cost_limit: Annotated[float, typer.Option(help="Maximum cost limit for agent")] = 1.0,
     output_dir: OptionalOutputDir = None,

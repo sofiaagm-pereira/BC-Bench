@@ -333,33 +333,4 @@ function New-BCContainerAsync {
     return $containerJob
 }
 
-<#
-    .SYNOPSIS
-    Gets the standard container name for a BC version
-    .DESCRIPTION
-    Generates a consistent container name based on BC version
-    .PARAMETER Version
-    BC version (e.g., "26.5")
-    .PARAMETER Prefix
-    Container name prefix (default: "bcbench")
-    .OUTPUTS
-    Standardized container name
-    .EXAMPLE
-    $name = Get-StandardContainerName -Version "26.5"  # Returns "bcbench-265"
-#>
-function Get-StandardContainerName {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Version,
-
-        [Parameter(Mandatory = $false)]
-        [string]$Prefix = "bcbench"
-    )
-
-    $cleanVersion = $Version -replace '\.', ''
-    return "$Prefix-$cleanVersion"
-}
-
-Export-ModuleMember -Function Test-Database, Set-AppVersion, Move-AppIntoDevScope, Initialize-ContainerForDevelopment, Test-ContainerExists, New-BCContainerAsync, Get-StandardContainerName
+Export-ModuleMember -Function Test-Database, Set-AppVersion, Move-AppIntoDevScope, Initialize-ContainerForDevelopment, Test-ContainerExists, New-BCContainerAsync

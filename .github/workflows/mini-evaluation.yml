@@ -45,6 +45,10 @@ jobs:
   evaluate-with-mini-agent:
     runs-on: windows-latest
     needs: get-entries
+    env:
+      BC_CONTAINER_NAME: bcbench
+      BC_CONTAINER_USERNAME: admin
+      BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
     if: needs.get-entries.outputs.entries != '[]'
     name: ${{ matrix.entry }}
     strategy:
@@ -64,7 +68,6 @@ jobs:
       - name: Setup BC container and repository for ${{ matrix.entry }}
         id: setup-env
         env:
-          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
           NAV_REPO_TOKEN: ${{ secrets.NAV_REPO_TOKEN }}
         run: |
           .\scripts\Setup-ContainerAndRepository.ps1 -InstanceId "${{ matrix.entry }}"
@@ -84,7 +87,6 @@ jobs:
 
       - name: Run mini-bc-agent for entry ${{ matrix.entry }}
         env:
-          BC_CONTAINER_PASSWORD: ${{ secrets.BC_CONTAINER_PASSWORD }}
           AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
           AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
           AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}

@@ -30,10 +30,10 @@ evaluate_app = typer.Typer(help="Evaluate agents on benchmark datasets")
 def evaluate_mini(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
     container_name: ContainerName,
+    username: ContainerUsername,
+    password: ContainerPassword,
     dataset_path: DatasetPath = _config.paths.dataset_path,
     repo_path: RepoPath = _config.paths.nav_repo_path,
-    username: ContainerUsername = "admin",
-    password: ContainerPassword = None,
     step_limit: Annotated[int, typer.Option(help="Maximum number of agent steps")] = 20,
     cost_limit: Annotated[float, typer.Option(help="Maximum cost limit for agent")] = 1.0,
     output_dir: OutputDir = Path("evaluation_results"),
@@ -107,10 +107,10 @@ def evaluate_mini(
 def evaluate_copilot(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
     container_name: ContainerName,
+    username: ContainerUsername,
+    password: ContainerPassword,
     dataset_path: DatasetPath = _config.paths.dataset_path,
     repo_path: RepoPath = _config.paths.nav_repo_path,
-    username: ContainerUsername = "admin",
-    password: ContainerPassword = None,
     output_dir: OutputDir = Path("evaluation_results"),
     run_id: Annotated[str, typer.Option(help="Unique identifier for this evaluation run")] = "copilot_test_run",
     include_project_paths: Annotated[

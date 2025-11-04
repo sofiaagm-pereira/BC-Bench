@@ -34,20 +34,15 @@ OptionalOutputDir = Annotated[
 
 ContainerName = Annotated[
     str,
-    typer.Option(help="BC container name"),
-]
-
-OptionalContainerName = Annotated[
-    str | None,
-    typer.Option(help="BC container name (required if --use-container)"),
+    typer.Option(envvar="BC_CONTAINER_NAME", help="BC container name"),
 ]
 
 ContainerUsername = Annotated[
     str,
-    typer.Option(help="Username for BC container"),
+    typer.Option(envvar="BC_CONTAINER_USERNAME", help="Username for BC container"),
 ]
 
 ContainerPassword = Annotated[
-    str | None,
-    typer.Option(help="Password for BC container (or set BC_CONTAINER_PASSWORD env var)"),
+    str,
+    typer.Option(envvar="BC_CONTAINER_PASSWORD", help="Password for BC container"),
 ]
