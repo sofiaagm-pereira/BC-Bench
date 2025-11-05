@@ -6,6 +6,7 @@ from typing import Any
 
 from minisweagent.environments.local import LocalEnvironment, LocalEnvironmentConfig
 
+from bcbench.config import get_config
 from bcbench.exceptions import ConfigurationError
 from bcbench.logger import get_logger
 from bcbench.operations.bc_operations import (
@@ -14,6 +15,7 @@ from bcbench.operations.bc_operations import (
 )
 
 logger = get_logger(__name__)
+_config = get_config()
 
 
 @dataclass
@@ -75,7 +77,7 @@ class BCEnvironment(LocalEnvironment):
         )
 
         # Extend timeout for build and publish, especially for BaseApp
-        timeout = 15 * 60 if ("BaseApp" in project_path) else 5 * 60
+        timeout = _config.timeout.build_baseapp if ("BaseApp" in project_path) else _config.timeout.build_app
 
         return self._execute_powershell(ps_script, cwd or self.config.cwd, timeout, log_command=False)
 
@@ -112,7 +114,7 @@ class BCEnvironment(LocalEnvironment):
             function_names=function_names if function_names else None,
         )
 
-        timeout = 2 * 60
+        timeout = _config.timeout.test_execution
 
         return self._execute_powershell(ps_script, cwd or self.config.cwd, timeout, log_command=False)
 

@@ -94,9 +94,10 @@ def run_copilot(
 @run_app.command("mini-inspector")
 def run_mini_inspector(
     path: Annotated[Path, typer.Argument(help="Directory to search for trajectory files or specific trajectory file")],
+    pattern: Annotated[str, typer.Option(help="File pattern to match trajectory files")] = f"*{_config.file_patterns.trajectory_pattern}",
 ):
     """
-    Inspect trajectory files (*.traj.json) in the given directory or a specific trajectory file.
+    Inspect trajectory files in the given directory or a specific trajectory file.
 
     Example:
         bcbench run mini-inspector ./outputs/mini_agent_runs/
@@ -106,7 +107,7 @@ def run_mini_inspector(
     if path.is_file():
         trajectory_files = [path]
     elif path.is_dir():
-        trajectory_files = sorted(path.rglob("*.traj.json"))
+        trajectory_files = sorted(path.rglob(pattern))
         if not trajectory_files:
             raise typer.BadParameter(f"No trajectory files found in '{path}'")
     else:

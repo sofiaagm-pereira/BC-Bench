@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.exceptions import ConfigurationError
 from bcbench.logger import get_logger
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from bcbench.agent.mini.bc_environment import BCEnvironment  # noqa: F401
 
 logger = get_logger(__name__)
+_config = get_config()
 
 
 def _create_bc_agent_class():
@@ -68,8 +70,8 @@ def run_mini_agent(
     task: str = entry.get_task()
 
     config_file = Path(__file__).parent / "bc_agent_config.yaml"
-    _config = yaml.safe_load(config_file.read_text())
-    agent_config = _config.get("agent", {})
+    mini_bc_config = yaml.safe_load(config_file.read_text())
+    agent_config = mini_bc_config.get("agent", {})
     agent_config["step_limit"] = step_limit
     agent_config["cost_limit"] = cost_limit
 
@@ -99,7 +101,7 @@ def run_mini_agent(
 
     exit_status, result = agent.run(task)
     if output_dir:
-        traj_file: Path = output_dir / f"{entry.instance_id}.traj.json"
+        traj_file: Path = output_dir / f"{entry.instance_id}{_config.file_patterns.trajectory_pattern}"
         save_traj(agent, traj_file, exit_status=exit_status, result=result)
 
     logger.info(f"mini-bc-agent run complete for: {entry.instance_id} after {agent.model.n_calls} steps")

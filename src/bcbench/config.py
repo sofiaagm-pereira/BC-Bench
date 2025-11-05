@@ -1,4 +1,4 @@
-"""Centralized configuration management for BC-Bench."""
+"""Centralized configuration and constant management for BC-Bench."""
 
 from __future__ import annotations
 
@@ -53,6 +53,40 @@ class PathConfig:
 
 
 @dataclass(frozen=True)
+class TimeoutConfig:
+    """Timeout configuration for various operations."""
+
+    build_baseapp: int
+    build_app: int
+    test_execution: int
+    github_copilot_cli: int
+
+    @classmethod
+    def default(cls) -> TimeoutConfig:
+        """Get default timeout configuration."""
+        return cls(
+            build_baseapp=15 * 60,  # 15 minutes for BaseApp compilation
+            build_app=5 * 60,  # 5 minutes for application compilation
+            test_execution=2 * 60,  # 2 minutes for test execution
+            github_copilot_cli=10 * 60,  # 10 minutes for GitHub Copilot CLI execution
+        )
+
+
+@dataclass(frozen=True)
+class FilePatternConfig:
+    """File patterns and naming conventions."""
+
+    trajectory_pattern: str
+
+    @classmethod
+    def default(cls) -> FilePatternConfig:
+        """Get default file pattern configuration."""
+        return cls(
+            trajectory_pattern=".traj.json",
+        )
+
+
+@dataclass(frozen=True)
 class EnvironmentConfig:
     """Environment-specific configuration."""
 
@@ -83,6 +117,8 @@ class Config:
 
     paths: PathConfig
     env: EnvironmentConfig
+    timeout: TimeoutConfig
+    file_patterns: FilePatternConfig
 
     @classmethod
     def load(cls) -> Config:
@@ -90,6 +126,8 @@ class Config:
         return cls(
             paths=PathConfig.from_root(root),
             env=EnvironmentConfig.from_environment(),
+            timeout=TimeoutConfig.default(),
+            file_patterns=FilePatternConfig.default(),
         )
 
     def resolve_ado_token(self) -> str:
