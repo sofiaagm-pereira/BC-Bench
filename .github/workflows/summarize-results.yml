@@ -35,6 +35,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: evaluation-summary
-          path: ${{ inputs.results-dir }}/evaluation_summary.json
+          path: ${{ inputs.results-dir }}/${{ github.run_id }}/evaluation_summary.json
           if-no-files-found: error
           retention-days: 30
