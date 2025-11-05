@@ -14,7 +14,7 @@ app = typer.Typer(
     name="bcbench",
     help="BC-Bench: Benchmarking tool for Business Central (AL) ecosystem",
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
 )
 
 app.add_typer(collect_app, name="collect")
