@@ -24,14 +24,6 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-    "pytest-cov>=7.0",
-    "ruff>=0.13.0",
-    "pre-commit>=4.3.0",
-]
-
 [project.scripts]
 bcbench = "bcbench.cli:app"
 
@@ -68,4 +60,13 @@ extend-select = [
 ignore = [
     "UP035",   # deprecated-import (typing.Dict, etc. still valid)
     "PTH123",  # Allow open() for now, Path.open() migration can be gradual
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=7.0",
+    "ruff>=0.13.0",
+    "pre-commit>=4.3.0",
+    "ty>=0.0.1a25",
 ]

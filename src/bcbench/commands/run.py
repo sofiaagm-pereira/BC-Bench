@@ -11,6 +11,7 @@ from bcbench.cli_options import (
     ContainerName,
     ContainerPassword,
     ContainerUsername,
+    CopilotModel,
     DatasetPath,
     OutputDir,
     RepoPath,
@@ -71,6 +72,7 @@ def run_mini(
 @run_app.command("copilot")
 def run_copilot(
     entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
+    model: CopilotModel = "claude-haiku-4.5",
     dataset_path: DatasetPath = _config.paths.dataset_path,
     repo_path: RepoPath = _config.paths.nav_repo_path,
     output_dir: OutputDir = _config.paths.evaluation_results_path,
@@ -88,7 +90,7 @@ def run_copilot(
     clean_repo(repo_path)
     checkout_commit(repo_path, entry.base_commit)
 
-    run_copilot_agent(entry=entry, repo_path=repo_path)
+    run_copilot_agent(entry=entry, repo_path=repo_path, model=model, output_dir=output_dir)
 
 
 @run_app.command("mini-inspector")
