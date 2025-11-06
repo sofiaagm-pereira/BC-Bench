@@ -13,8 +13,6 @@ A benchmark for evaluating AI coding on Business Central (AL) development tasks,
       <th>Agent</th>
       <th>Model</th>
       <th>% Resolved</th>
-      <th>Avg Duration (s)</th>
-      <th>Token Consumption</th>
       <th>Date</th>
     </tr>
   </thead>
@@ -25,8 +23,6 @@ A benchmark for evaluating AI coding on Business Central (AL) development tasks,
       <td>{{ result.agent_name }}</td>
       <td>{{ result.model }}</td>
       <td>{{ result.resolved }} / {{ result.total }} ({{ result.resolved | times: 100.0 | divided_by: result.total | round: 1 }}%)</td>
-      <td>{{ result.average_duration | round: 1 }}</td>
-      <td>{{ result.average_prompt_tokens | round: 0 }} prompt + {{ result.average_completion_tokens | round: 0 }} completion</td>
       <td>{{ result.date }}</td>
     </tr>
     {% endfor %}
