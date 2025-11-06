@@ -18,15 +18,10 @@ def run_copilot_agent(
     entry: DatasetEntry,
     model: str,
     repo_path: Path,
+    output_dir: Path,
     include_project_paths: bool = False,
-    output_dir: Path | None = None,
 ) -> dict[str, float | int] | None:
     """Run GitHub Copilot CLI agent on a single dataset entry.
-
-    Args:
-        entry_id: ID of the entry to run
-        repo_path: Path to the repository
-        output_dir: Optional directory to save output files (unused, kept for API compatibility)
 
     Returns:
         Dictionary containing metrics extracted from the CLI output, or None if collection fails
@@ -51,8 +46,8 @@ def run_copilot_agent(
                 "--disable-builtin-mcps",
                 f"--model={model}",
                 "--no-custom-instructions",
-                "--log-level",
-                "debug",
+                "--log-level=debug",
+                f"--log-dir={output_dir}",
                 "-p",
                 prompt.replace("\r", "").replace("\n", " "),
             ],
