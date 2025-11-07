@@ -47,16 +47,16 @@ class EvaluationResult:
         return cls._create(context, resolved=True, build=True, generated_patch=generated_patch)
 
     @classmethod
-    def create_build_failure(cls, context: "EvaluationContext", error_msg: str) -> "EvaluationResult":
-        return cls._create(context, resolved=False, build=False, error_message=error_msg)
+    def create_build_failure(cls, context: "EvaluationContext", generated_patch: str, error_msg: str) -> "EvaluationResult":
+        return cls._create(context, resolved=False, build=False, error_message=error_msg, generated_patch=generated_patch)
 
     @classmethod
-    def create_test_failure(cls, context: "EvaluationContext", error_msg: str = "Tests failed") -> "EvaluationResult":
-        return cls._create(context, resolved=False, build=True, error_message=error_msg)
+    def create_test_failure(cls, context: "EvaluationContext", generated_patch: str, error_msg: str = "Tests failed") -> "EvaluationResult":
+        return cls._create(context, resolved=False, build=True, error_message=error_msg, generated_patch=generated_patch)
 
     @classmethod
-    def create_unexpected_error(cls, context: "EvaluationContext", error: Exception) -> "EvaluationResult":
-        return cls._create(context, resolved=False, build=False, error_message=f"Unexpected error: {error}")
+    def create_unexpected_error(cls, context: "EvaluationContext", generated_patch: str, error: Exception) -> "EvaluationResult":
+        return cls._create(context, resolved=False, build=False, error_message=f"Unexpected error: {error}", generated_patch=generated_patch)
 
     @classmethod
     def _create(cls, context: "EvaluationContext", resolved: bool, build: bool, error_message: str | None = None, generated_patch: str = "") -> "EvaluationResult":
