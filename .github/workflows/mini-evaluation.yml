@@ -64,7 +64,7 @@ jobs:
         run: |
           $args = @(
             'evaluate', 'mini', "${{ matrix.entry }}",
-            '--model "${{ github.event.inputs.model }}"',
+            '--model', "${{ github.event.inputs.model }}",
             '--repo-path', "${{ steps.setup-env.outputs.repo_path }}",
             '--output-dir', "${{ env.EVALUATION_RESULTS_DIR }}",
             '--step-limit', '50'
