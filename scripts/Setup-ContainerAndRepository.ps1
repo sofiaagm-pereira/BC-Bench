@@ -77,7 +77,7 @@ if (Test-Path $RepoPath) {
         [string] $navBranch = "releases/$Version"
         [string] $navURL = 'https://dynamicssmb2.visualstudio.com/Dynamics%20SMB/_git/NAV'
 
-        Invoke-GitCloneWithRetry -RepoUrl $navURL -Token $env:NAV_REPO_TOKEN -Branch $navBranch `
+        Invoke-GitCloneWithRetry -RepoUrl $navURL -Token $env:ADO_TOKEN -Branch $navBranch `
             -ClonePath $RepoPath -PrefetchCommits ($entries | Select-Object -ExpandProperty base_commit)
     }
     catch {

@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/setup-bc-container
         with:
           instance-id: ${{ matrix.entry }}
-          nav-repo-token: ${{ secrets.NAV_REPO_TOKEN }}
+          ado-token: ${{ secrets.ADO_TOKEN }}
 
       - name: Run build and test verification for ${{ matrix.entry }}
         timeout-minutes: 60
