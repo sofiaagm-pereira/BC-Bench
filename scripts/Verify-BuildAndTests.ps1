@@ -4,25 +4,25 @@ using module .\AppUtils.psm1
 using module .\BCContainerManagement.psm1
 
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$Version,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$InstanceId,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$DatasetPath = (Get-BCBenchDatasetPath),
 
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$RepoPath,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$ContainerName = $env:BC_CONTAINER_NAME ?? "bcbench",
 
-    [Parameter(Mandatory=$false)]
-    [string]$Username= $env:BC_CONTAINER_USERNAME ?? "admin",
+    [Parameter(Mandatory = $false)]
+    [string]$Username = $env:BC_CONTAINER_USERNAME ?? "admin",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [SecureString]$Password
 )
 
@@ -30,7 +30,8 @@ param(
 if ($InstanceId) {
     $Version = $entries[0].environment_setup_version
     Write-Log "Found version $Version for InstanceId $InstanceId" -Level Info
-} else {
+}
+else {
     Write-Log "Found $($entries.Count) dataset entries to process." -Level Info
 }
 
@@ -114,7 +115,7 @@ foreach ($entry in $entries) {
 
 function Show-ValidationResults {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidationResult[]]$Results
     )
 
@@ -131,7 +132,8 @@ function Show-ValidationResults {
     $Results | Where-Object { $_.Status -eq "Failed" } | ForEach-Object {
         if ($env:CI) {
             Write-Host "::error title=Dataset Verification::Instance ID: $($_.InstanceId) - Message: $($_.Message)"
-        } else {
+        }
+        else {
             Write-Log "Instance ID: $($_.InstanceId) - Message: $($_.Message)" -Level Error
         }
     }
@@ -144,7 +146,8 @@ function Show-ValidationResults {
 if ($failureCount -gt 0) {
     Write-Log "Dataset Verification completed with failures" -Level Error
     exit 1
-} else {
+}
+else {
     Write-Log "Dataset Verification completed successfully" -Level Success
     exit 0
 }

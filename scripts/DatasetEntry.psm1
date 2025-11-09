@@ -109,7 +109,8 @@ function Get-DatasetEntries {
 
     if ($Version) {
         $entries = $entries | Where-Object { $_.environment_setup_version -eq $Version }
-    } elseif ($InstanceId) {
+    }
+    elseif ($InstanceId) {
         $entries = $entries | Where-Object { $_.instance_id -eq $InstanceId }
     }
 

@@ -3,28 +3,28 @@ using module .\BCBenchUtils.psm1
 using module .\BCContainerManagement.psm1
 
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$Version,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$InstanceId,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$DatasetPath = (Get-BCBenchDatasetPath),
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$Country = "w1",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$ContainerName = $env:BC_CONTAINER_NAME ?? "bcbench",
 
-    [Parameter(Mandatory=$false)]
-    [string]$Username= $env:BC_CONTAINER_USERNAME ?? "admin",
+    [Parameter(Mandatory = $false)]
+    [string]$Username = $env:BC_CONTAINER_USERNAME ?? "admin",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [SecureString]$Password,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$RepoPath
 )
 
@@ -32,7 +32,8 @@ param(
 if ($InstanceId) {
     $Version = $entries[0].environment_setup_version
     Write-Log "Found version $Version for InstanceId $InstanceId" -Level Info
-} else {
+}
+else {
     Write-Log "Found $($entries.Count) dataset entries to process." -Level Info
 }
 
@@ -53,7 +54,8 @@ Write-Log "Container name: $ContainerName" -Level Info
 
 if (Test-ContainerExists -containerName $ContainerName) {
     Write-Log "Container $ContainerName already exists, reusing it" -Level Warning
-} else {
+}
+else {
     try {
         Write-Log "Creating container $ContainerName for version $Version..." -Level Info
 
@@ -72,7 +74,8 @@ if (Test-ContainerExists -containerName $ContainerName) {
 
 if (Test-Path $RepoPath) {
     Write-Log "NAV repository already exists at $RepoPath, skipping clone." -Level Warning
-} else {
+}
+else {
     try {
         [string] $navBranch = "releases/$Version"
         [string] $navURL = 'https://dynamicssmb2.visualstudio.com/Dynamics%20SMB/_git/NAV'
@@ -91,7 +94,8 @@ if ($containerJob) {
     $success = Wait-JobWithProgress -Job $containerJob -StatusMessage "Container creation"
     if ($success) {
         Initialize-ContainerForDevelopment -ContainerName $ContainerName -RepoVersion ([System.Version]$Version)
-    } else {
+    }
+    else {
         exit 1
     }
 }

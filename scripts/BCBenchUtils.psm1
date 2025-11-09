@@ -175,7 +175,8 @@ function Invoke-GitCloneWithRetry {
 
                     Write-Log "Prefetch completed for specified commits" -Level Success
                 }
-            } else {
+            }
+            else {
                 throw "Git clone failed with exit code $LASTEXITCODE`: $cloneResult"
             }
         }
@@ -184,7 +185,8 @@ function Invoke-GitCloneWithRetry {
             if ($retryCount -eq $MaxRetries) {
                 Write-Log "Failed to clone repository after $MaxRetries attempts" -Level Error
                 return $false
-            } else {
+            }
+            else {
                 Write-Log "Retrying in $RetryDelaySeconds seconds..." -Level Warning
                 Start-Sleep -Seconds $RetryDelaySeconds
             }
@@ -260,7 +262,8 @@ function Wait-JobWithProgress {
         Write-Log "$StatusMessage completed successfully" -Level Success
         Remove-Job $Job
         return $true
-    } else {
+    }
+    else {
         # Get error details
         $jobError = Receive-Job $Job -ErrorAction SilentlyContinue
         $jobOutput = Receive-Job $Job
@@ -321,7 +324,8 @@ function Write-Log {
 
         # Using Console.Out preserves ANSI escape sequences in GitHub Actions logs
         [Console]::Out.WriteLine("$($config.AnsiColor)$formattedMessage$resetColor")
-    } else {
+    }
+    else {
         # Local execution - write with color
         Write-Host $formattedMessage -ForegroundColor $config.Color
     }
@@ -367,7 +371,8 @@ function Invoke-GitApplyPatch {
 
         if ($RepositoryPath) {
             $applyResult = git -C $RepositoryPath apply --whitespace=nowarn $patchPath 2>&1
-        } else {
+        }
+        else {
             $applyResult = git apply --whitespace=nowarn $patchPath 2>&1
         }
 
@@ -439,7 +444,8 @@ function Update-AppProjectVersion {
 
     if ($appJson.PSObject.Properties.Name -contains "application") {
         $appJson.application = $applicationVersion
-    } else {
+    }
+    else {
         Write-Log "'application' property does not exist in app.json under $ProjectPath" -Level Warning
     }
 

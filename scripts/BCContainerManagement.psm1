@@ -17,8 +17,7 @@
     .PARAMETER CommandTimeout
     The timeout for the command
 #>
-function Invoke-SqlCommand()
-{
+function Invoke-SqlCommand() {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Server,
@@ -29,8 +28,7 @@ function Invoke-SqlCommand()
     )
 
     $Options = @{}
-    if ($CommandTimeout)
-    {
+    if ($CommandTimeout) {
         $Options["QueryTimeout"] = $CommandTimeout
     }
 
@@ -50,8 +48,7 @@ function Invoke-SqlCommand()
     .OUTPUTS
     Returns true if database exists otherwise false
 #>
-function Test-Database()
-{
+function Test-Database() {
     param(
         [Parameter(Mandatory = $true)]
         [string]$DatabaseName,
@@ -86,8 +83,7 @@ function Test-Database()
     .PARAMETER DatabaseServer
     The hostname of the SQL server
 #>
-function Set-AppVersion()
-{
+function Set-AppVersion() {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -143,8 +139,7 @@ function Set-AppVersion()
     .PARAMETER DatabaseServer
     The database server on which to run the query.
 #>
-function Move-AppIntoDevScope()
-{
+function Move-AppIntoDevScope() {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -157,8 +152,7 @@ function Move-AppIntoDevScope()
         [Parameter(Mandatory = $false)]
         [string]$DatabaseServer = '.'
     )
-    if (!$TenantId)
-    {
+    if (!$TenantId) {
         $TenantId = 'default'
     }
 
@@ -227,12 +221,13 @@ function Initialize-ContainerForDevelopment() {
                     Set-AppVersion -Name ($_.Name) -DatabaseName $DatabaseName -Major $RepoVersion.Major -Minor $RepoVersion.Minor
                 }
             }
-        } finally {
+        }
+        finally {
             Write-Host "Starting server instance $($server.ServerInstance)" -ForegroundColor Green
             Start-NAVServerInstance -ServerInstance $server.ServerInstance
         }
 
-    } -argumentList $containerModulePath,$RepoVersion
+    } -argumentList $containerModulePath, $RepoVersion
 }
 
 <#
@@ -303,14 +298,14 @@ function New-BCContainerAsync {
         Import-Module BcContainerHelper -Force -DisableNameChecking
 
         $params = @{
-            artifactUrl = $url
-            containerName = $ContainerName
-            auth = $authType
-            credential = $credential
-            includeTestToolkit = $true
+            artifactUrl              = $url
+            containerName            = $ContainerName
+            auth                     = $authType
+            credential               = $credential
+            includeTestToolkit       = $true
             includeTestLibrariesOnly = $true
-            multitenant = $false
-            shortcuts = 'None'
+            multitenant              = $false
+            shortcuts                = 'None'
         }
 
         if ($acceptEula) {
