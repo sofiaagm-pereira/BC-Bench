@@ -95,7 +95,8 @@ def get_gernerated_diff(repo_path: Path) -> str:
             text=True,
             check=True,
         )
-        logger.debug("Git diff retrieved successfully")
+        logger.info("Git diff retrieved successfully")
+        logger.debug(f"Generated diff:\n{result.stdout}")
         return result.stdout
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to get git diff: {e.stderr}")
