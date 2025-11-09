@@ -56,6 +56,8 @@ def run_copilot_agent(
             cwd=str(repo_path),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=_config.timeout.github_copilot_cli,
             check=True,
         )
