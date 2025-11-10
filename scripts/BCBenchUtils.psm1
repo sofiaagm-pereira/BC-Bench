@@ -184,7 +184,7 @@ function Invoke-GitCloneWithRetry {
             Write-Log "Clone attempt $retryCount failed: $($_.Exception.Message)" -Level Error
             if ($retryCount -eq $MaxRetries) {
                 Write-Log "Failed to clone repository after $MaxRetries attempts" -Level Error
-                return $false
+                throw "Repository clone failed"
             }
             else {
                 Write-Log "Retrying in $RetryDelaySeconds seconds..." -Level Warning
