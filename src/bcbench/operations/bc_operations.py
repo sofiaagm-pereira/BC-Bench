@@ -142,8 +142,8 @@ def build_and_publish_projects(repo_path: Path, project_paths: list[str], contai
                 timeout=timeout,
             )
         except subprocess.CalledProcessError as e:
-            logger.error(f"Build failed for {project_path}: {e.stderr}")
-            logger.error(f"Full command output: {e.stdout}")
+            logger.debug(f"Build failed for {project_path}")
+            logger.debug(f"Full command output: {e.stdout}")
             raise BuildError(project_path, e.stderr) from None
         except subprocess.TimeoutExpired:
             logger.error(f"Build timed out for {project_path} after {timeout} seconds")
@@ -190,7 +190,7 @@ def _run_test_suite(test_entries: list[TestEntry], expectation: str, container_n
             timeout=_config.timeout.test_execution,
         )
     except subprocess.CalledProcessError as e:
-        logger.error(f"Test result did not meet expectation (expected: {expectation}): {e.stderr}")
+        logger.debug(f"Test result did not meet expectation (expected: {expectation}): {e.stderr}")
         raise TestExecutionError(expectation, e.stderr) from None
     except subprocess.TimeoutExpired:
         logger.error(f"Test execution timed out after {_config.timeout.test_execution} seconds")
