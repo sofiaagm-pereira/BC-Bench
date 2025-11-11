@@ -144,7 +144,7 @@ class BCEnvironment(LocalEnvironment):
 
         except subprocess.TimeoutExpired as e:
             error_msg = f"Command timed out after {timeout} seconds"
-            logger.error(error_msg)
+            logger.warning(error_msg)
 
             return {
                 "returncode": -1,
@@ -152,14 +152,14 @@ class BCEnvironment(LocalEnvironment):
             }
         except subprocess.CalledProcessError as e:
             error_msg = f"Command failed with exit code {e.returncode}"
-            logger.error(error_msg)
+            logger.warning(error_msg)
             if e.stderr and log_command:
-                logger.error(f"Error output (first line):\n{e.stderr.splitlines()[0]}")
+                logger.debug(f"Error output (first line):\n{e.stderr.splitlines()[0]}")
 
             return {"returncode": e.returncode, "output": f"{error_msg}\n{e.stdout or ''}{e.stderr or ''}".strip()}
         except Exception as e:
             error_msg = f"Error executing command: {e!s}"
-            logger.error(error_msg)
+            logger.warning(error_msg)
             return {"returncode": -1, "output": error_msg}
 
     def get_template_vars(self) -> dict[str, Any]:
