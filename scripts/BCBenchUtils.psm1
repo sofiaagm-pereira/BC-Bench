@@ -102,7 +102,7 @@ function Invoke-GitCloneWithRetry {
         [string]$ClonePath,
 
         [Parameter(Mandatory = $false)]
-        [int]$MaxRetries = 2,
+        [int]$MaxRetries = 3,
 
         [Parameter(Mandatory = $false)]
         [int]$RetryDelaySeconds = 5,
