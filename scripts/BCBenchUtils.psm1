@@ -132,7 +132,7 @@ function Invoke-GitCloneWithRetry {
         try {
             Write-Log "Attempting repository clone (Attempt $retryCount/$MaxRetries)..." -Level Info
 
-            $cloneArgs = "--filter=blob:none --single-branch --no-tags"
+            $cloneArgs = "--single-branch --no-tags"
             if ($SparseCheckoutPaths -and $SparseCheckoutPaths.Count -gt 0) {
                 $cloneArgs += " --sparse"
             }
