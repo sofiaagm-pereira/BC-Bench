@@ -17,21 +17,9 @@ def clean_repo(repo_path: Path) -> None:
     logger.info(f"Cleaning repository: {repo_path}")
 
     try:
-        subprocess.run(
-            ["git", "reset", "--hard", "HEAD"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
 
-        subprocess.run(
-            ["git", "clean", "-fd"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        subprocess.run(["git", "clean", "-fd"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
 
         logger.info("Repository cleaned successfully")
     except subprocess.CalledProcessError as e:
@@ -42,13 +30,7 @@ def clean_repo(repo_path: Path) -> None:
 def checkout_commit(repo_path: Path, commit: str) -> None:
     logger.info(f"Checking out commit: {commit}")
     try:
-        subprocess.run(
-            ["git", "checkout", commit],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        subprocess.run(["git", "checkout", commit], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to checkout commit {commit}: {e.stderr}")
         raise
@@ -63,13 +45,7 @@ def apply_patch(repo_path: Path, patch_content: str, patch_name: str = "patch") 
         patch_file = f.name
 
     try:
-        subprocess.run(
-            ["git", "apply", "--whitespace=nowarn", "--ignore-whitespace", patch_file],
-            cwd=repo_path,
-            capture_output=True,
-            check=True,
-            text=True,
-        )
+        subprocess.run(["git", "apply", "--whitespace=nowarn", "--ignore-whitespace", patch_file], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
 
         logger.info(f"{patch_name.capitalize()} applied successfully")
     except subprocess.CalledProcessError as e:
@@ -97,6 +73,8 @@ def get_generated_diff(repo_path: Path) -> str:
         subprocess.run(
             ["git", "-c", "core.safecrlf=false", "add", "-A"],
             cwd=repo_path,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             check=True,
         )
 
