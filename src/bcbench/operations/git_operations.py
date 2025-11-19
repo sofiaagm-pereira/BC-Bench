@@ -69,20 +69,15 @@ def get_generated_diff(repo_path: Path) -> str:
         logger.info("Getting git diff")
 
         # Stage all changes, so new files can be captured in the diff
-        # Disable safecrlf warnings for the *.md instruction files
-        subprocess.run(
-            ["git", "-c", "core.safecrlf=false", "add", "-A"],
-            cwd=repo_path,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
+        # only focus on *.al files for now
+        subprocess.run(["git", "add", "*.al"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
 
         # Get diff of staged changes against HEAD
         result = subprocess.run(
             ["git", "diff", "--cached", "--", ".", ":!*.docx", ":!**/app.json", ":!*.md"],
             cwd=repo_path,
             capture_output=True,
+            encoding="utf-8",
             text=True,
             check=True,
         )
