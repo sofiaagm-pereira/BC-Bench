@@ -1,8 +1,11 @@
 To evaluate locally, for now:
 
 ```
-$MODEL = "claude-sonnet-4.5"
 $MODEL = "claude-haiku-4.5"
+
+$MODEL = "claude-sonnet-4.5"
+
+$MODEL = "gemini-3-pro-preview"
 
 bcbench evaluate extensibility-copilot --dataset-path c:\depot\bc-bench\dataset\bcbench_extensibility.yaml --model $MODEL
 

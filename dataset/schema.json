@@ -11,8 +11,8 @@
     },
     "instance_id": {
       "type": "string",
-      "description": "A formatted instance identifier, usually as repo_owner__repo_name-PRnumber",
-      "pattern": "^[a-zA-Z0-9_-]+__[a-zA-Z0-9_-]+-[0-9]+$"
+      "description": "A formatted instance identifier, usually as repo_owner__repo_name-PRnumber_issueNumber where _issueNumber is optional",
+      "pattern": "^[a-zA-Z0-9_-]+__[a-zA-Z0-9_-]+(-[0-9]+)?(-[0-9]+)?$"
     },
     "patch": {
       "type": "string",
@@ -66,7 +66,10 @@
             "uniqueItems": true
           }
         },
-        "required": ["codeunitID", "functionName"],
+        "required": [
+          "codeunitID",
+          "functionName"
+        ],
         "additionalProperties": false
       }
     },
@@ -90,7 +93,10 @@
             "uniqueItems": true
           }
         },
-        "required": ["codeunitID", "functionName"],
+        "required": [
+          "codeunitID",
+          "functionName"
+        ],
         "additionalProperties": false
       }
     },
