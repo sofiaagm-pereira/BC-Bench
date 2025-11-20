@@ -53,9 +53,9 @@ def run_copilot_agent(entry: DatasetEntryV2, repo_path, model: str, output_dir: 
             "--disable-builtin-mcps",
             f"--model={model}",
             "--log-level=debug",
-            f"--log-dir={output_dir.resolve() / entry.instance_id}",
-            "--prompt", prompt.replace("\r", " ").replace("\n", " ").replace('"', "'"),
+            f"--log-dir={output_dir.resolve()}",
         ]
+
         if not instructions_enabled:
             cmd_args.append("--no-custom-instructions")
         if mcp_config_json:
@@ -66,6 +66,7 @@ def run_copilot_agent(entry: DatasetEntryV2, repo_path, model: str, output_dir: 
         proc = subprocess.Popen(
             cmd_args,
             cwd=str(repo_path),
+            stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -89,6 +90,10 @@ def run_copilot_agent(entry: DatasetEntryV2, repo_path, model: str, output_dir: 
         t1.start()
         t2.start()
 
+        proc.stdin.write(prompt)
+        proc.stdin.flush()
+        proc.stdin.close()
+
         try:
             proc.wait(timeout=_config.timeout.github_copilot_cli)
         except subprocess.TimeoutExpired:
@@ -101,11 +106,13 @@ def run_copilot_agent(entry: DatasetEntryV2, repo_path, model: str, output_dir: 
         if proc.returncode != 0:
             raise subprocess.CalledProcessError(
                 returncode=proc.returncode,
-                cmd=proc.args
+                cmd=proc.args,
+                output=''.join(stdout_buf),
+                stderr=''.join(stderr_buf)
             )
 
         log_contents = ""
-        for log_file_path in (output_dir / entry.instance_id).glob("*.log"):
+        for log_file_path in output_dir.glob("*.log"):
             with open(log_file_path, "r", encoding="utf-8", errors="replace") as log_file:
                 log_contents += log_file.read() + "\n"
 
@@ -117,8 +124,14 @@ def run_copilot_agent(entry: DatasetEntryV2, repo_path, model: str, output_dir: 
         logger.error(f"Copilot CLI timed out after {_config.timeout.github_copilot_cli} seconds")
         return None, mcp_server_names, instructions_enabled
     except subprocess.CalledProcessError as e:
-        logger.error(f"Copilot CLI execution failed with error {e.stderr}")
-        raise AgentError(f"Copilot CLI execution failed: {e}") from None
+        error_details = f"Return code: {e.returncode}"
+        if e.stderr:
+            error_details += f"\nStderr: {e.stderr[:500]}"  # First 500 chars
+        if e.output:
+            error_details += f"\nStdout: {e.output[:500]}"  # First 500 chars
+        logger.error(f"Copilot CLI execution failed: {error_details}")
+        import pdb; pdb.set_trace()
+        raise AgentError(f"Copilot CLI execution failed with return code {e.returncode}") from None
     except Exception as e:
         logger.exception(f"Unexpected error running Copilot CLI: {e}")
         raise

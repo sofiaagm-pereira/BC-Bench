@@ -139,8 +139,8 @@ def evaluate_copilot(
     logger.info(f"Results saved to: {run_dir}")
 
 @evaluate_app.command("extensibility-copilot")
-def evaluate_copilot(
-    entry_id: Annotated[str, typer.Argument(help="Entry ID to run")],
+def evaluate_extensibility_copilot(
+    entry_id: Annotated[str, typer.Argument(help="Entry ID to run")] = None,
     #container_name: ContainerName,
     #username: ContainerUsername,
     #password: ContainerPassword,
@@ -156,42 +156,45 @@ def evaluate_copilot(
     To only run the agent to generate a patch without building/testing, use 'bcbench run copilot' instead.
 
     Example:
-        uv run bcbench evaluate copilot microsoftInternal__NAV-211710 --container-name bcserver
+        uv run bcbench evaluate copilot microsoftInternal__NAV-211710
     """
     entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
-    entry: DatasetEntry = entries[0]
-    logger.info(f"Loaded {entry_id} entry from dataset")
 
-    run_dir: Path = output_dir / run_id
-    if run_dir.exists():
-        shutil.rmtree(run_dir)
-    run_dir.mkdir(parents=True)
+    for entry in entries:
+        logger.info(f"Loaded {entry_id} entry from dataset")
 
-    logger.info(f"Running evaluation on entry {entry_id} with GitHub Copilot CLI")
+        run_id = entry.instance_id
 
-    context = EvaluationContext(
-        entry=entry,
-        repo_path=repo_path,
-        result_dir=run_dir,
-        container_name=None,
-        username=None,
-        password=None,
-        model=model,
-        agent_name="GitHub Copilot CLI",
-    )
+        run_dir: Path = output_dir / run_id
+        if run_dir.exists():
+            shutil.rmtree(run_dir)
+        run_dir.mkdir(parents=True)
 
-    run_extensibility_evaluation_pipeline(
-        context,
-        lambda ctx: bcbench.agent.extensibility_copilot.run_copilot_agent(
-            entry=ctx.entry,
-            repo_path=ctx.repo_path,
-            model=ctx.model,
-            output_dir=ctx.result_dir,
-        ),
-    )
+        logger.info(f"Running evaluation on entry {entry_id} with GitHub Copilot CLI")
 
-    logger.info("Evaluation complete!")
-    logger.info(f"Results saved to: {run_dir}")
+        context = EvaluationContext(
+            entry=entry,
+            repo_path=repo_path,
+            result_dir=run_dir,
+            container_name=None,
+            username=None,
+            password=None,
+            model=model,
+            agent_name="GitHub Copilot CLI",
+        )
+
+        run_extensibility_evaluation_pipeline(
+            context,
+            lambda ctx: bcbench.agent.extensibility_copilot.run_copilot_agent(
+                entry=ctx.entry,
+                repo_path=ctx.repo_path,
+                model=ctx.model,
+                output_dir=ctx.result_dir,
+            ),
+        )
+
+        logger.info("Evaluation complete!")
+        logger.info(f"Results saved to: {run_dir}")
 
 @evaluate_app.command("mock", hidden=True)
 def evaluate_mock(

@@ -18,7 +18,7 @@ result_app = typer.Typer(help="Process and display evaluation results")
 
 @result_app.command("summarize")
 def result_summarize(
-    run_id: RunId,
+    run_id: RunId = None,
     result_dir: OutputDir = _config.paths.evaluation_results_path,
     result_pattern: Annotated[str, typer.Option(help="Pattern for the per instances result files")] = f"*{_config.file_patterns.result_pattern}",
     dataset_path: DatasetPath = _config.paths.dataset_path,
@@ -30,45 +30,50 @@ def result_summarize(
 
     Aggregates individual instance results, displays job summaries and generates bceval output format.
     """
-    run_dir: Path = result_dir / run_id
-
-    if not run_dir.exists():
-        logger.error(f"Results directory not found: {run_dir}")
-        raise typer.Exit(code=1)
-
-    result_files = list(run_dir.rglob(result_pattern))
-    if not result_files:
-        logger.error(f"No result files matching '{result_pattern}' found in {run_dir}")
-        raise typer.Exit(code=1)
-
-    # Filter to only instance-specific result files (exclude combined results and summaries)
-    instance_pattern_regex = re.compile(_config.file_patterns.instance_pattern)
-    result_files = [f for f in result_files if instance_pattern_regex.match(f.stem)]
-
-    if not result_files:
-        logger.error(f"No instance-specific result files found in {run_dir}")
-        raise typer.Exit(code=1)
-
-    results: list[EvaluationResult] = []
-    for results_path in result_files:
-        logger.info(f"Reading results from: {results_path}")
-        with open(results_path) as f:
-            results.extend(EvaluationResult.from_json(json.loads(line)) for line in f if line.strip())
-
-    if not results:
-        logger.error("No results found in the result files")
-        raise typer.Exit(code=1)
-
-    write_bceval_results(results, run_dir, run_id, dataset_path, bceval_output)
-
-    if _config.env.github_actions:
-        create_github_job_summary(results)
+    run_dirs: list[Path]
+    if run_id is None:
+        run_dirs = [d for d in result_dir.iterdir() if d.is_dir()]
     else:
-        create_console_summary(results)
+        run_dirs = [result_dir / run_id]
 
-    # Save summary JSON
-    summary = EvaluationResultSummary.from_results(results, run_id=run_id)
-    summary.save(run_dir, summary_output)
+    for run_dir in run_dirs:
+        if not run_dir.exists():
+            logger.error(f"Results directory not found: {run_dir}")
+            raise typer.Exit(code=1)
+
+        result_files = list(run_dir.rglob(result_pattern))
+        if not result_files:
+            logger.error(f"No result files matching '{result_pattern}' found in {run_dir}")
+            raise typer.Exit(code=1)
+
+        # Filter to only instance-specific result files (exclude combined results and summaries)
+        instance_pattern_regex = re.compile(_config.file_patterns.instance_pattern)
+        result_files = [f for f in result_files if instance_pattern_regex.match(f.stem)]
+
+        if not result_files:
+            logger.error(f"No instance-specific result files found in {run_dir}")
+            raise typer.Exit(code=1)
+
+        results: list[EvaluationResult] = []
+        for results_path in result_files:
+            logger.info(f"Reading results from: {results_path}")
+            with open(results_path) as f:
+                results.extend(EvaluationResult.from_json(json.loads(line)) for line in f if line.strip())
+
+        if not results:
+            logger.error("No results found in the result files")
+            raise typer.Exit(code=1)
+
+        write_bceval_results(results, run_dir, run_id, dataset_path, bceval_output)
+
+        if _config.env.github_actions:
+            create_github_job_summary(results)
+        else:
+            create_console_summary(results)
+
+        # Save summary JSON
+        summary = EvaluationResultSummary.from_results(results, run_id=run_id)
+        summary.save(run_dir, summary_output)
 
 
 @result_app.command("update")
