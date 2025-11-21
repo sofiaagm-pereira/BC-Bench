@@ -140,6 +140,10 @@ class AgentError(BCBenchError):
     """Agent execution errors."""
 
 
+class AgentTimeoutError(BCBenchError):
+    """Agent execution timeout errors."""
+
+
 class ConfigurationError(BCBenchError):
     """Configuration-related errors."""
 

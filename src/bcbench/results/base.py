@@ -26,6 +26,7 @@ class BaseEvaluationResult(BaseModel):
 
     resolved: bool
     build: bool
+    timeout: bool = False
 
     generated_patch: str = ""
     error_message: str | None = None
@@ -109,6 +110,10 @@ class BaseEvaluationResult(BaseModel):
     @classmethod
     def create_test_failure(cls: type[T], context: "EvaluationContext", generated_patch: str, error_msg: str = "Tests failed", **kwargs: Any) -> T:
         return cls._create_from_context(context, resolved=False, build=True, error_message=error_msg, generated_patch=generated_patch, **kwargs)
+
+    @classmethod
+    def create_agent_timeout_failure(cls: type[T], context: "EvaluationContext", **kwargs: Any) -> T:
+        return cls._create_from_context(context, resolved=False, build=False, timeout=True, error_message="Agent timed out", **kwargs)
 
     def save(self, output_dir: Path, result_file: str) -> None:
         output_file = output_dir / result_file

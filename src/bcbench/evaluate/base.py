@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
+from bcbench.config import get_config
+from bcbench.exceptions import AgentTimeoutError
 from bcbench.logger import get_logger
 from bcbench.results import BaseEvaluationResult
 from bcbench.types import EvaluationCategory, EvaluationContext
 
 logger = get_logger(__name__)
+_config = get_config()
 
 __all__ = ["EvaluationPipeline", "create_pipeline"]
 
@@ -71,7 +74,16 @@ class EvaluationPipeline(ABC):
             agent_runner: Function that runs the specific agent and returns (metrics, mcp_servers, custom_instructions)
         """
         self.setup(context)
-        self.run_agent(context, agent_runner)
+
+        try:
+            self.run_agent(context, agent_runner)
+        except AgentTimeoutError:
+            context.agent_metrics = {"agent_execution_time": _config.timeout.github_copilot_cli}
+            result = BaseEvaluationResult.create_agent_timeout_failure(context)
+            self.save_result(context, result)
+            logger.info("Agent timed out during execution, counting as failure.")
+            return
+
         self.evaluate(context)
 
     def save_result(self, context: EvaluationContext, result: BaseEvaluationResult) -> None:
@@ -81,9 +93,7 @@ class EvaluationPipeline(ABC):
             context: Evaluation context with configuration
             result: BaseEvaluationResult to save
         """
-        from bcbench.config import get_config
 
-        _config = get_config()
         result.save(context.result_dir, f"{context.entry.instance_id}{_config.file_patterns.result_pattern}")
 
 

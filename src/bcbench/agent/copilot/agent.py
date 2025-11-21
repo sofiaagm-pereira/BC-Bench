@@ -12,7 +12,7 @@ from bcbench.agent.copilot.metrics import parse_metrics
 from bcbench.agent.copilot.prompt import build_prompt
 from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
-from bcbench.exceptions import AgentError
+from bcbench.exceptions import AgentError, AgentTimeoutError
 from bcbench.logger import get_logger
 from bcbench.operations import setup_custom_agent, setup_instructions_from_config
 from bcbench.types import EvaluationCategory
@@ -84,9 +84,8 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
         stderr_lines = stderr.splitlines()
         return parse_metrics(stderr_lines), mcp_server_names, instructions_enabled
     except subprocess.TimeoutExpired:
-        # timeout should not raise an exception, we will evaluate whatever copilot did so far
         logger.error(f"Copilot CLI timed out after {_config.timeout.github_copilot_cli} seconds")
-        return None, mcp_server_names, instructions_enabled
+        raise AgentTimeoutError(f"Copilot CLI timed out after {_config.timeout.github_copilot_cli} seconds") from None
     except subprocess.CalledProcessError as e:
         logger.error(f"Copilot CLI execution failed with error {e.stderr}")
         raise AgentError(f"Copilot CLI execution failed: {e}") from None
