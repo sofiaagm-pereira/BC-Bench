@@ -143,6 +143,11 @@ class AgentError(BCBenchError):
 class AgentTimeoutError(BCBenchError):
     """Agent execution timeout errors."""
 
+    def __init__(self, message: str, mcp_servers: list[str] | None = None, custom_instructions: bool | None = None):
+        self.mcp_servers = mcp_servers
+        self.custom_instructions = custom_instructions
+        super().__init__(message)
+
 
 class ConfigurationError(BCBenchError):
     """Configuration-related errors."""

@@ -77,8 +77,10 @@ class EvaluationPipeline(ABC):
 
         try:
             self.run_agent(context, agent_runner)
-        except AgentTimeoutError:
+        except AgentTimeoutError as e:
             context.agent_metrics = {"agent_execution_time": _config.timeout.github_copilot_cli}
+            context.mcp_servers = e.mcp_servers
+            context.custom_instructions = e.custom_instructions
             result = BaseEvaluationResult.create_agent_timeout_failure(context)
             self.save_result(context, result)
             logger.info("Agent timed out during execution, counting as failure.")

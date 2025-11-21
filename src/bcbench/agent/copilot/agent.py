@@ -85,7 +85,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
         return parse_metrics(stderr_lines), mcp_server_names, instructions_enabled
     except subprocess.TimeoutExpired:
         logger.error(f"Copilot CLI timed out after {_config.timeout.github_copilot_cli} seconds")
-        raise AgentTimeoutError(f"Copilot CLI timed out after {_config.timeout.github_copilot_cli} seconds") from None
+        raise AgentTimeoutError("Copilot CLI timed out", mcp_servers=mcp_server_names, custom_instructions=instructions_enabled) from None
     except subprocess.CalledProcessError as e:
         logger.error(f"Copilot CLI execution failed with error {e.stderr}")
         raise AgentError(f"Copilot CLI execution failed: {e}") from None
