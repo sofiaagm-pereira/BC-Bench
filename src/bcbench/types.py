@@ -31,9 +31,6 @@ class AgentMetrics:
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
 
-    def __post_init__(self):
-        logger.info(f"AgentMetrics: {self}")
-
 
 @dataclass
 class ExperimentConfiguration:
