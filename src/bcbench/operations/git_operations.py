@@ -15,16 +15,9 @@ _config = get_config()
 def clean_repo(repo_path: Path) -> None:
     """Clean the repository by discarding all changes, including staged files and untracked files."""
     logger.info(f"Cleaning repository: {repo_path}")
-
-    try:
-        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
-
-        subprocess.run(["git", "clean", "-fd"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
-
-        logger.info("Repository cleaned successfully")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to clean repository: {e.stderr}")
-        raise
+    subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+    subprocess.run(["git", "clean", "-fd"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+    logger.info("Repository cleaned successfully")
 
 
 def clean_project_paths(repo_path: Path, project_paths: list[str]) -> None:
@@ -63,11 +56,7 @@ def clean_project_paths(repo_path: Path, project_paths: list[str]) -> None:
 
 def checkout_commit(repo_path: Path, commit: str) -> None:
     logger.info(f"Checking out commit: {commit}")
-    try:
-        subprocess.run(["git", "checkout", commit], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to checkout commit {commit}: {e.stderr}")
-        raise
+    subprocess.run(["git", "checkout", commit], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
     logger.info(f"Commit {commit} checked out")
 
 
@@ -104,31 +93,27 @@ def stage_and_get_diff(repo_path: Path) -> str:
     Raises:
         EmptyDiffError: If the generated diff is empty (agent made no changes)
     """
-    try:
-        logger.info("Staging *.al file changes and getting git diff")
+    logger.info("Staging *.al file changes and getting git diff")
 
-        # Stage all changes, so new files can be captured in the diff
-        # only focus on *.al files for now
-        subprocess.run(["git", "add", "*.al"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
+    # Stage all changes, so new files can be captured in the diff
+    # only focus on *.al files for now
+    subprocess.run(["git", "add", "*.al"], cwd=repo_path, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True)
 
-        # Get diff of staged changes against HEAD
-        result = subprocess.run(
-            ["git", "diff", "--cached", "--", ".", ":!*.docx", ":!**/app.json", ":!*.md"],
-            cwd=repo_path,
-            capture_output=True,
-            encoding="utf-8",
-            text=True,
-            check=True,
-        )
-        patch: str = result.stdout.strip()
-        logger.info("Git diff retrieved successfully")
-        logger.debug(f"Generated diff:\n{patch}")
+    # Get diff of staged changes against HEAD
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--", ".", ":!*.docx", ":!**/app.json", ":!*.md"],
+        cwd=repo_path,
+        capture_output=True,
+        encoding="utf-8",
+        text=True,
+        check=True,
+    )
+    patch: str = result.stdout.strip()
+    logger.info("Git diff retrieved successfully")
+    logger.debug(f"Generated diff:\n{patch}")
 
-        if not patch:
-            logger.error("Generated diff is empty - agent made no changes")
-            raise EmptyDiffError()
+    if not patch:
+        logger.error("Generated diff is empty - agent made no changes")
+        raise EmptyDiffError()
 
-        return patch
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to stage and get git diff: {e.stderr}")
-        raise
+    return patch
