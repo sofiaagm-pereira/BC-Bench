@@ -3,7 +3,7 @@ from pathlib import Path
 
 from bcbench.dataset import DatasetEntry, load_dataset_entries
 from bcbench.logger import get_logger
-from bcbench.results import BaseEvaluationResult
+from bcbench.results.base import BaseEvaluationResult
 from bcbench.types import EvaluationCategory
 
 logger = get_logger(__name__)
@@ -34,9 +34,9 @@ def write_bceval_results(results: list[BaseEvaluationResult], out_dir: Path, run
                 "context": "",
                 "metadata": {
                     "model": result.model,
-                    "prompt_tokens": result.prompt_tokens or 0,
-                    "completion_tokens": result.completion_tokens or 0,
-                    "latency": result.agent_execution_time or 0,
+                    "prompt_tokens": (result.metrics.prompt_tokens if result.metrics else None) or 0,
+                    "completion_tokens": (result.metrics.completion_tokens if result.metrics else None) or 0,
+                    "latency": (result.metrics.execution_time if result.metrics else None) or 0,
                     "resolved": result.resolved,
                     "build": result.build,
                     "run_id": run_id,

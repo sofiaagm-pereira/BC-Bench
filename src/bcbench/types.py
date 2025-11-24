@@ -7,6 +7,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from bcbench.logger import get_logger
 
 if TYPE_CHECKING:
@@ -17,8 +19,7 @@ __all__ = ["AgentMetrics", "EvaluationContext", "ExperimentConfiguration"]
 logger = get_logger(__name__)
 
 
-@dataclass
-class AgentMetrics:
+class AgentMetrics(BaseModel):
     """Metrics collected during agent execution.
 
     Separates runtime execution data from experiment configuration.
@@ -32,8 +33,7 @@ class AgentMetrics:
     completion_tokens: int | None = None
 
 
-@dataclass
-class ExperimentConfiguration:
+class ExperimentConfiguration(BaseModel):
     """Configuration for agent experiment execution.
 
     This encapsulates experiment-related configuration that agents use,
@@ -48,6 +48,13 @@ class ExperimentConfiguration:
 
     # Custom agent name used in experiment (if any)
     custom_agent: str | None = None
+
+
+class EvaluationCategory(str, Enum):
+    BUG_FIX = "bug-fix"
+    TEST_GENERATION = "test-generation"
+    # CODE_REVIEW = "code-review"
+    # EVENT_REQUEST = "event-request"
 
 
 @dataclass
@@ -80,10 +87,3 @@ class EvaluationContext:
 
     # Experiment configuration
     experiment: ExperimentConfiguration | None = None
-
-
-class EvaluationCategory(str, Enum):
-    BUG_FIX = "bug-fix"
-    TEST_GENERATION = "test-generation"
-    # CODE_REVIEW = "code-review"
-    # EVENT_REQUEST = "event-request"
