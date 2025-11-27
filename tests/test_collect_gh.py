@@ -93,7 +93,7 @@ class TestFindProjectPathsFromDiff:
 """
         paths = find_project_paths_from_diff(diff)
         assert len(paths) == 1
-        assert "App/Apps/W1/Sustainability/app" in paths
+        assert "App\\Apps\\W1\\Sustainability\\app" in paths
 
     def test_finds_test_project_paths(self):
         diff = """diff --git a/App/Apps/W1/Sustainability/test/TestCode.al b/App/Apps/W1/Sustainability/test/TestCode.al
@@ -107,11 +107,49 @@ class TestFindProjectPathsFromDiff:
 """
         paths = find_project_paths_from_diff(diff)
         assert len(paths) == 1
-        assert "App/Apps/W1/Sustainability/test" in paths
+        assert "App\\Apps\\W1\\Sustainability\\test" in paths
 
     def test_raises_collection_error_on_empty_diff(self):
         with pytest.raises(CollectionError, match="Patch data is empty or None"):
             find_project_paths_from_diff("")
+
+    def test_finds_layers_project_paths(self):
+        diff = """diff --git a/App/Layers/W1/BaseApp/Sales/Reminder/ReminderIssue.Codeunit.al b/App/Layers/W1/BaseApp/Sales/Reminder/ReminderIssue.Codeunit.al
+index 9ff59101df2..ff238e73dcf 100644
+--- a/App/Layers/W1/BaseApp/Sales/Reminder/ReminderIssue.Codeunit.al
++++ b/App/Layers/W1/BaseApp/Sales/Reminder/ReminderIssue.Codeunit.al
+@@ -409,9 +409,6 @@ codeunit 393 "Reminder-Issue"
+         if IsHandled then
+             exit;
+
+-        if NewDueDate < ReminderEntry2."Due Date" then
+-            exit;
+-
+         ReminderEntry2.Validate("Due Date", NewDueDate);
+         ReminderEntry2.Modify();
+     end;
+diff --git a/App/Layers/W1/Tests/ERM/ERMIssuedReminderAddnlFee.Codeunit.al b/App/Layers/W1/Tests/ERM/ERMIssuedReminderAddnlFee.Codeunit.al
+index 71c12b1ce1a..6d8f4aaca9e 100644
+--- a/App/Layers/W1/Tests/ERM/ERMIssuedReminderAddnlFee.Codeunit.al
++++ b/App/Layers/W1/Tests/ERM/ERMIssuedReminderAddnlFee.Codeunit.al
+@@ -636,6 +636,12 @@ codeunit 134905 "ERM Issued Reminder Addnl Fee"
+         ReminderPage.ContactEmail.AssertEquals(EMail);
+     end;
+
++    [Test]
++    procedure VerifyDueDateAfterUpdateDueDateInCustLedgerEntry()
++    begin
++        Initialize();
++    end;
++
+     local procedure Initialize()
+     var
+         LibraryERMCountryData: Codeunit "Library - ERM Country Data";
+"""
+        paths = find_project_paths_from_diff(diff)
+        assert len(paths) == 2
+        assert "App\\Layers\\W1\\BaseApp" in paths
+        assert "App\\Layers\\W1\\Tests\\ERM" in paths
 
 
 class TestGHClient:

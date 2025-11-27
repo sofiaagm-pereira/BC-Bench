@@ -76,7 +76,8 @@ def find_project_paths_from_diff(patch: str) -> list[str]:
     BC projects typically have paths like:
     - App/Apps/W1/<ProjectName>/app/
     - App/Apps/W1/<ProjectName>/test/
-    - App/Layers/W1/<ProjectName>/
+    - App/Layers/W1/<ProjectName>/ (e.g., App/Layers/W1/BaseApp)
+    - App/Layers/W1/Tests/<TestCategory>/ (e.g., App/Layers/W1/Tests/ERM)
 
     Args:
         patch: The diff/patch string to analyze
@@ -89,6 +90,8 @@ def find_project_paths_from_diff(patch: str) -> list[str]:
     """
     if not patch or not str(patch).strip():
         raise CollectionError("Patch data is empty or None")
+
+    logger.debug(f"Patch data: {patch}")
 
     try:
         patch_set = PatchSet(str(patch))
@@ -104,13 +107,27 @@ def find_project_paths_from_diff(patch: str) -> list[str]:
         # Extract the directory containing the file
         path_parts = patched_file.path.replace("\\", "/").split("/")
 
-        # Look for 'app' or 'test' directory to find the project root
+        # Handle Layers structure: App/Layers/W1/<ProjectName or Tests>/<...>
+        # For Layers, the project path is App/Layers/W1/<ProjectName> or App/Layers/W1/Tests/<TestCategory>
+        if len(path_parts) >= 4 and path_parts[1].lower() == "layers":
+            # Check if it's a test project: App/Layers/W1/Tests/<TestCategory>/...
+            if len(path_parts) >= 5 and path_parts[3].lower() == "tests":
+                # Test project: App/Layers/W1/Tests/<TestCategory>
+                project_path = "\\".join(path_parts[:5])
+                project_paths.add(project_path)
+            else:
+                # App project: App/Layers/W1/<ProjectName>
+                project_path = "\\".join(path_parts[:4])
+                project_paths.add(project_path)
+            continue
+
+        # Handle Apps structure: Look for 'app' or 'test' directory to find the project root
         # Skip the first component since paths often start with 'App' (capital A)
         for i in range(1, len(path_parts)):
             part = path_parts[i]
             if part.lower() in ("app", "test"):
                 # Take path up to and including this directory
-                project_path = "/".join(path_parts[: i + 1])
+                project_path = "\\".join(path_parts[: i + 1])
                 if project_path:
                     project_paths.add(project_path)
                 break
