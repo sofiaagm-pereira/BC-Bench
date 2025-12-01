@@ -44,17 +44,15 @@
     "average_prompt_tokens": 2410900.0,
     "average_completion_tokens": 9526.5,
     "average_tool_usage": {
-      "tool_counts": {
-        "report_intent": 2.03,
-        "view": 19.12,
-        "glob": 4.85,
-        "grep": 10.65,
-        "edit": 4.56,
-        "powershell": 3.0,
-        "stop_powershell": 0.03,
-        "create": 0.09,
-        "bash": 0.03
-      }
+      "report_intent": 2.03,
+      "view": 19.12,
+      "glob": 4.85,
+      "grep": 10.65,
+      "edit": 4.56,
+      "powershell": 3.0,
+      "stop_powershell": 0.03,
+      "create": 0.09,
+      "bash": 0.03
     },
     "github_run_id": "19784980762",
     "experiment": null
@@ -142,15 +140,13 @@
     "average_prompt_tokens": 1180605.9,
     "average_completion_tokens": 11734.9,
     "average_tool_usage": {
-      "tool_counts": {
-        "report_intent": 2.26,
-        "grep": 8.35,
-        "glob": 1.79,
-        "view": 7.26,
-        "edit": 4.74,
-        "powershell": 1.12,
-        "create": 0.03
-      }
+      "report_intent": 2.26,
+      "grep": 8.35,
+      "glob": 1.79,
+      "view": 7.26,
+      "edit": 4.74,
+      "powershell": 1.12,
+      "create": 0.03
     },
     "github_run_id": "19795586715",
     "experiment": null
@@ -226,14 +222,12 @@
     "average_prompt_tokens": 731541.2,
     "average_completion_tokens": 4294.4,
     "average_tool_usage": {
-      "tool_counts": {
-        "report_intent": 2.12,
-        "grep": 5.24,
-        "view": 7.5,
-        "edit": 2.59,
-        "powershell": 0.12,
-        "glob": 0.29
-      }
+      "report_intent": 2.12,
+      "grep": 5.24,
+      "view": 7.5,
+      "edit": 2.59,
+      "powershell": 0.12,
+      "glob": 0.29
     },
     "github_run_id": "19781418834",
     "experiment": null
@@ -251,16 +245,14 @@
     "average_prompt_tokens": 2812205.9,
     "average_completion_tokens": 10788.2,
     "average_tool_usage": {
-      "tool_counts": {
-        "report_intent": 1.68,
-        "view": 19.62,
-        "glob": 4.82,
-        "grep": 12.18,
-        "edit": 5.03,
-        "powershell": 4.21,
-        "stop_powershell": 0.06,
-        "altool-compile": 0.15
-      }
+      "report_intent": 1.68,
+      "view": 19.62,
+      "glob": 4.82,
+      "grep": 12.18,
+      "edit": 5.03,
+      "powershell": 4.21,
+      "stop_powershell": 0.06,
+      "altool-compile": 0.15
     },
     "github_run_id": "19783023568",
     "experiment": {
@@ -284,18 +276,16 @@
     "average_prompt_tokens": 955202.9,
     "average_completion_tokens": 4741.0,
     "average_tool_usage": {
-      "tool_counts": {
-        "report_intent": 2.09,
-        "grep": 6.88,
-        "glob": 0.35,
-        "filesystem-read_multiple_files": 0.21,
-        "edit": 2.74,
-        "view": 6.85,
-        "filesystem-read_text_file": 1.41,
-        "powershell": 0.29,
-        "create": 0.03,
-        "filesystem-edit_file": 0.09
-      }
+      "report_intent": 2.09,
+      "grep": 6.88,
+      "glob": 0.35,
+      "filesystem-read_multiple_files": 0.21,
+      "edit": 2.74,
+      "view": 6.85,
+      "filesystem-read_text_file": 1.41,
+      "powershell": 0.29,
+      "create": 0.03,
+      "filesystem-edit_file": 0.09
     },
     "github_run_id": "19788241760",
     "experiment": {
