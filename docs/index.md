@@ -33,7 +33,7 @@ A benchmark for evaluating AI coding on Business Central (AL) development tasks,
   </tbody>
 </table>
 
-## Experimental Configurations
+## MCP Server Experimental Configurations
 
 Comparing experimental configurations against baseline for **claude-haiku-4.5**.
 
@@ -41,7 +41,6 @@ Comparing experimental configurations against baseline for **claude-haiku-4.5**.
   <thead>
     <tr>
       <th>MCP Servers</th>
-      <th>Custom Instructions</th>
       <th>% Resolved</th>
       <th>Avg Duration (s)</th>
       <th>Date</th>
@@ -50,10 +49,9 @@ Comparing experimental configurations against baseline for **claude-haiku-4.5**.
   <tbody>
     {% assign sorted_results = site.data.bug-fix | sort: "resolved" | reverse %}
     {% for result in sorted_results %}
-      {% if result.model == "claude-haiku-4.5" %}
+      {% if result.model == "claude-haiku-4.5" and result.experiment.custom_instructions == false %}
     <tr>
       <td>{% if result.experiment.mcp_servers %}{{ result.experiment.mcp_servers }}{% else %}None{% endif %}</td>
-      <td>{% if result.experiment.custom_instructions %}Yes{% else %}No{% endif %}</td>
       <td>{{ result.resolved }} / {{ result.total }} ({{ result.resolved | times: 100.0 | divided_by: result.total | round: 1 }}%)</td>
       <td>{% if result.average_duration %}{{ result.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
       <td>{{ result.date }}</td>
@@ -70,7 +68,6 @@ Comparing experimental configurations against baseline for **claude-opus-4.5**.
   <thead>
     <tr>
       <th>MCP Servers</th>
-      <th>Custom Instructions</th>
       <th>% Resolved</th>
       <th>Avg Duration (s)</th>
       <th>Date</th>
@@ -79,10 +76,9 @@ Comparing experimental configurations against baseline for **claude-opus-4.5**.
   <tbody>
     {% assign sorted_results = site.data.bug-fix | sort: "resolved" | reverse %}
     {% for result in sorted_results %}
-      {% if result.model == "claude-opus-4.5" %}
+      {% if result.model == "claude-opus-4.5" and result.experiment.custom_instructions == false %}
     <tr>
       <td>{% if result.experiment.mcp_servers %}{{ result.experiment.mcp_servers }}{% else %}None{% endif %}</td>
-      <td>{% if result.experiment.custom_instructions %}Yes{% else %}No{% endif %}</td>
       <td>{{ result.resolved }} / {{ result.total }} ({{ result.resolved | times: 100.0 | divided_by: result.total | round: 1 }}%)</td>
       <td>{% if result.average_duration %}{{ result.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
       <td>{{ result.date }}</td>
