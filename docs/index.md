@@ -91,5 +91,3 @@ Comparing experimental configurations against baseline for **claude-opus-4.5**.
     {% endfor %}
   </tbody>
 </table>
-
-For more information, visit the [BC-Bench repository](https://github.com/microsoft/BC-Bench).
