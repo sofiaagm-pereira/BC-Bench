@@ -26,7 +26,7 @@ A benchmark for evaluating AI coding on Business Central (AL) development tasks,
       <td>{{ result.model }}</td>
       <td>{{ result.resolved }} / {{ result.total }} ({{ result.resolved | times: 100.0 | divided_by: result.total | round: 1 }}%)</td>
       <td>{% if result.average_duration %}{{ result.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
-      <td>{{ result.date }}</td>
+      <td><a href="https://github.com/microsoft/BC-Bench/actions/runs/{{ result.github_run_id }}" target="_blank">{{ result.date }}</a></td>
     </tr>
       {% endif %}
     {% endfor %}
@@ -55,7 +55,7 @@ Comparing experimental configurations against baseline for **claude-haiku-4.5**.
       <td>{% if result.experiment.mcp_servers %}{{ result.experiment.mcp_servers }}{% else %}None{% endif %}</td>
       <td>{{ result.resolved }} / {{ result.total }} ({{ result.resolved | times: 100.0 | divided_by: result.total | round: 1 }}%)</td>
       <td>{% if result.average_duration %}{{ result.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
-      <td>{{ result.date }}</td>
+      <td><a href="https://github.com/microsoft/BC-Bench/actions/runs/{{ result.github_run_id }}" target="_blank">{{ result.date }}</a></td>
     </tr>
         {% endunless %}
       {% endif %}
@@ -84,7 +84,7 @@ Comparing experimental configurations against baseline for **claude-opus-4.5**.
       <td>{% if result.experiment.mcp_servers %}{{ result.experiment.mcp_servers }}{% else %}None{% endif %}</td>
       <td>{{ result.resolved }} / {{ result.total }} ({{ result.resolved | times: 100.0 | divided_by: result.total | round: 1 }}%)</td>
       <td>{% if result.average_duration %}{{ result.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
-      <td>{{ result.date }}</td>
+      <td><a href="https://github.com/microsoft/BC-Bench/actions/runs/{{ result.github_run_id }}" target="_blank">{{ result.date }}</a></td>
     </tr>
         {% endunless %}
       {% endif %}
