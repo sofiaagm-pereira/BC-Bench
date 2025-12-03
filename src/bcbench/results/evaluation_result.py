@@ -17,6 +17,7 @@ class EvaluationResultSummary(BaseModel):
     resolved: int
     failed: int
     build: int
+    percentage: float
 
     date: date
 
@@ -54,6 +55,7 @@ class EvaluationResultSummary(BaseModel):
         return cls(
             total=total,
             resolved=resolved,
+            percentage=round(resolved / total * 100, 1),
             failed=total - resolved,
             build=sum(r.build for r in results),
             date=date.today(),

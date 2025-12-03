@@ -14,7 +14,8 @@
     "average_llm_duration": null,
     "average_tool_usage": null,
     "github_run_id": "19614090363",
-    "experiment": null
+    "experiment": null,
+    "percentage": 44.0
   },
   {
     "total": 32,
@@ -31,7 +32,8 @@
     "average_llm_duration": null,
     "average_tool_usage": null,
     "github_run_id": "19745030800",
-    "experiment": null
+    "experiment": null,
+    "percentage": 50.0
   },
   {
     "total": 34,
@@ -58,7 +60,8 @@
       "bash": 0.03
     },
     "github_run_id": "19784980762",
-    "experiment": null
+    "experiment": null,
+    "percentage": 47.1
   },
   {
     "total": 19,
@@ -75,7 +78,8 @@
     "average_llm_duration": null,
     "average_tool_usage": null,
     "github_run_id": "19227643144",
-    "experiment": null
+    "experiment": null,
+    "percentage": 31.6
   },
   {
     "total": 37,
@@ -92,7 +96,8 @@
     "average_llm_duration": 0.0,
     "average_tool_usage": null,
     "github_run_id": "19855931749",
-    "experiment": null
+    "experiment": null,
+    "percentage": 10.8
   },
   {
     "total": 22,
@@ -115,7 +120,8 @@
       ],
       "custom_instructions": false,
       "custom_agent": null
-    }
+    },
+    "percentage": 50.0
   },
   {
     "total": 45,
@@ -143,7 +149,8 @@
       "create": 0.02
     },
     "github_run_id": "19873787284",
-    "experiment": null
+    "experiment": null,
+    "percentage": 44.4
   },
   {
     "total": 34,
@@ -168,7 +175,8 @@
       "create": 0.03
     },
     "github_run_id": "19795586715",
-    "experiment": null
+    "experiment": null,
+    "percentage": 47.1
   },
   {
     "total": 22,
@@ -191,7 +199,8 @@
       ],
       "custom_instructions": false,
       "custom_agent": null
-    }
+    },
+    "percentage": 50.0
   },
   {
     "total": 22,
@@ -208,7 +217,8 @@
     "average_llm_duration": null,
     "average_tool_usage": null,
     "github_run_id": "19388071339",
-    "experiment": null
+    "experiment": null,
+    "percentage": 40.9
   },
   {
     "total": 22,
@@ -229,7 +239,8 @@
       "mcp_servers": null,
       "custom_instructions": true,
       "custom_agent": null
-    }
+    },
+    "percentage": 54.5
   },
   {
     "total": 34,
@@ -253,7 +264,8 @@
       "glob": 0.29
     },
     "github_run_id": "19781418834",
-    "experiment": null
+    "experiment": null,
+    "percentage": 61.8
   },
   {
     "total": 34,
@@ -285,7 +297,8 @@
       ],
       "custom_instructions": false,
       "custom_agent": null
-    }
+    },
+    "percentage": 58.8
   },
   {
     "total": 34,
@@ -319,7 +332,8 @@
       ],
       "custom_instructions": false,
       "custom_agent": null
-    }
+    },
+    "percentage": 50.0
   },
   {
     "total": 37,
@@ -350,6 +364,7 @@
       ],
       "custom_instructions": false,
       "custom_agent": null
-    }
+    },
+    "percentage": 56.8
   }
 ]
