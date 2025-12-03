@@ -37,4 +37,3 @@ The Second Place Line is updated instead which is confusing
 The Partner mentioned that the in the Code there seems to be a filter that always updates the First line of the Placing
 
 Description:
-

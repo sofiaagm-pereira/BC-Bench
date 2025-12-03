@@ -19,4 +19,3 @@ Other details: Customer said this is possible to post non-inventory item in a Pr
 ![Project Journals](./project_journals.png)
 
 Description:
-
