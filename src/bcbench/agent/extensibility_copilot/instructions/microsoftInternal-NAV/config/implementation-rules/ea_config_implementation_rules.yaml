@@ -3,9 +3,63 @@
 # Version: 1.0
 
 implementation_rules:
-
+  
   absolute_restrictions:
     description: "Auto-stop conditions. If ANY applies, request cannot be implemented."
+
+    - id: never_suggest_ishandled_unless_requested
+      applies_to: ["event-request"]
+      severity: "mandatory"
+      description: "Agent must NEVER suggest IsHandled events unless explicitly requested by the author"
+      check_method: "request_analysis"
+      action: "enforce_event_type"
+      rule: "When implementing event requests, ONLY add IsHandled parameter if the author EXPLICITLY requested it using keywords like 'IsHandled', 'bypass', 'skip', 'handled', or 'prevent execution'. Regular event requests get regular events WITHOUT IsHandled."
+      detailed_explanation: |
+        **CRITICAL RULE:** The agent must NEVER suggest or implement an IsHandled event pattern unless the author explicitly requested it.
+        
+        **Detection of IsHandled Request:**
+        The author must use one of these explicit indicators:
+        - "IsHandled" keyword in the request
+        - "bypass" or "skip" the standard logic
+        - "prevent" or "stop" execution
+        - "handled" parameter
+        - Explicitly mentions wanting to replace/override the standard behavior
+        
+        **If NOT explicitly requested:**
+        - Implement a REGULAR IntegrationEvent without IsHandled parameter
+        - Event should provide access to data for extension purposes
+        - Event should NOT include bypass/skip functionality
+        
+        **Example - Regular Event Request (NO IsHandled keywords):**
+        Author says: "Add an event publisher in TestPurchaseLines"
+        
+        ❌ WRONG - Agent adds IsHandled:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeCheckIsCancellationSupported(...; var IsHandled: Boolean)
+        ```
+        
+        ✅ CORRECT - Agent adds regular event:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeCheckIsCancellationSupported(...; var IsCancellationSupported: Boolean)
+        ```
+        
+        **Example - IsHandled Request (explicit keywords):**
+        Author says: "Add IsHandled event to bypass the credit limit check"
+        
+        ✅ CORRECT - Agent adds IsHandled:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeCreditLimitCheck(...; var IsHandled: Boolean)
+        ```
+        
+        **Rationale:**
+        - IsHandled events allow bypassing critical business logic
+        - They carry higher risk and require explicit author intent
+        - Regular events are safer and provide extensibility without bypass capability
+        - Agent should not escalate the scope of a request beyond what was asked
+      requires_confirmation: false
 
     - id: obsolete_code
       applies_to: ["all"]
@@ -16,7 +70,7 @@ implementation_rules:
       action: "auto_reject"
       rejection_reason: "The target code is marked as obsolete and cannot be modified"
       documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-obsolete-code"
-
+    
     - id: protected_code
       applies_to: ["all"]
       severity: "blocking"
@@ -26,7 +80,7 @@ implementation_rules:
       action: "auto_reject"
       rejection_reason: "The target code is protected and cannot be modified"
       documentation_link: ""
-
+    
     - id: public_signature_change
       applies_to: ["all"]
       severity: "blocking"
@@ -35,8 +89,63 @@ implementation_rules:
       check_conditions: ["public_procedure", "signature_modification"]
       action: "auto_reject"
       rejection_reason: "Implementation would require changing a public procedure signature, which may break existing code"
+      exceptions:
+        - description: "Adding exit parameter names to public procedures is allowed"
+          examples:
+            - allowed: "procedure IsInvoiceDocType(): Boolean → procedure IsInvoiceDocType() Result: Boolean"
+            - not_allowed: "Changing parameter types, adding new parameters, removing parameters"
       documentation_link: ""
-
+    
+    - id: adding_var_to_event_parameter
+      applies_to: ["event-request"]
+      severity: "allowed"
+      description: "Adding 'var' modifier to existing event parameter is allowed (non-breaking change)"
+      check_method: "parameter_analysis"
+      action: "approve_with_validation"
+      detailed_explanation: |
+        **Allowed Change:** Adding `var` to an existing event parameter is NOT a breaking change.
+        
+        **Rationale:**
+        - Existing subscribers continue to work (they just won't modify the value)
+        - Expands functionality without breaking backward compatibility
+        - Allows new subscribers to modify the parameter while old ones remain unaffected
+        
+        **Example - Allowed Change:**
+        
+        Original event:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnAfterConfirmPost(PurchaseHeader: Record "Purchase Header"; var IsHandled: Boolean)
+        begin
+        end;
+        ```
+        
+        Changed to (ALLOWED):
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnAfterConfirmPost(var PurchaseHeader: Record "Purchase Header"; var IsHandled: Boolean)
+        begin
+        end;
+        ```
+        
+        **CRITICAL - Validation Required:**
+        Before approving, agent MUST verify that modifying the parameter at this event location is SAFE:
+        1. Check what code executes AFTER the event fires
+        2. Verify the modified value will be used (not discarded or overwritten)
+        3. Ensure modifications won't cause data inconsistency or unexpected behavior
+        4. Check if the record is passed to subsequent operations that would benefit from modifications
+        
+        **Approve if:** The parameter is used after the event and modifications would flow through to subsequent operations
+        **Reject if:** The parameter is not used after the event, or modifications would be discarded/overwritten
+      validation_required: true
+      validation_steps:
+        - "Locate the event call in the source code"
+        - "Analyze code flow AFTER the event fires"
+        - "Verify the parameter is used in subsequent operations"
+        - "Confirm modifications would not be discarded or overwritten"
+        - "Check for data consistency implications"
+      documentation_link: ""
+    
     - id: merge_conflicts
       applies_to: ["all"]
       severity: "blocking"
@@ -46,7 +155,7 @@ implementation_rules:
       action: "auto_reject"
       rejection_reason: "The target file has merge conflicts that must be resolved first"
       documentation_link: ""
-
+    
     - id: procedure_not_found
       applies_to: ["event-request"]
       severity: "blocking"
@@ -56,24 +165,25 @@ implementation_rules:
       rejection_reason: "The specified procedure/trigger was not found in the codebase"
       suggestion: "The procedure may have been refactored or renamed. Please verify the correct location."
       documentation_link: ""
-
+    
     - id: recordref_parameter_in_event
       applies_to: ["event-request"]
       severity: "blocking"
       description: "RecordRef parameter used in event signature"
       check_method: "parameter_analysis"
       check_patterns: ["RecordRef"]
-      action: "auto_reject"
-      rejection_reason: "RecordRef parameters should never be added to events. Use specific typed record parameters instead."
+      action: "request_clarification"
+      rejection_reason: "RecordRef parameters should not be added to events. Use specific typed record parameters instead."
       detailed_explanation: |
         RecordRef is a dynamic reference type that should not be used as event parameters because:
         - Reduces type safety and IntelliSense support for subscribers
         - Makes subscribers more complex (requires dynamic type casting)
         - Creates maintenance burden when table structures change
         - Weakens compile-time validation
-
+        - Using RecordRef parameters allows attackers to access critical/private data and perform unauthorized operations
+        
         Instead, use the specific record type(s) involved in the operation.
-
+        
         ❌ Wrong:
         ```al
         [IntegrationEvent(false, false)]
@@ -81,7 +191,7 @@ implementation_rules:
         begin
         end;
         ```
-
+        
         ✅ Correct:
         ```al
         [IntegrationEvent(false, false)]
@@ -91,9 +201,106 @@ implementation_rules:
         ```
       documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
 
+    - id: xrec_parameter_in_event
+      applies_to: ["event-request"]
+      severity: "critical"
+      description: "xRec parameter used in event signature"
+      check_method: "parameter_analysis"
+      check_patterns: ["xRec"]
+      analysis_required: true
+      action: "request_justification"
+      warning_message: "xRec parameter requires detailed justification as its behavior depends on the calling context."
+      detailed_explanation: |
+        xRec is a special variable that contains the previous values of a record before modification.
+        Using xRec in event parameters requires careful consideration because:
+        
+        **Context Dependency:**
+        - xRec behavior varies significantly depending on where it's used (pages vs other objects)
+        - In table or codeunit: Contains the record values before the current operation
+        - In page: May contain unexpected or stale data depending on calling context
+        - Can be unreliable if called from different contexts than expected
+        
+        **Required Justification:**
+        1. Explain exactly how xRec will be used by subscribers
+        2. Justify why current record (Rec) is insufficient
+        3. Explain why previous values are specifically needed
+        4. Confirm understanding of xRec behavior in the specific context
+        
+        **Example - Justified Use:**
+        ```al
+        // ✅ Justified - Need to track field changes
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeModifyCustomer(var Customer: Record Customer; xRecCustomer: Record Customer)
+        begin
+        end;
+        ```
+        
+        **Example - Not Justified:**
+        ```al
+        // ❌ Questionable - xRec behavior unclear in this context
+        [IntegrationEvent(false, false)]
+        local procedure OnProcessData(var Rec: Record "Data Table"; xRec: Record "Data Table")
+        begin
+        end;
+        ```
+        
+        **Risk:** xRec may contain unexpected or stale data depending on the calling context, 
+        leading to unreliable subscriber behavior.
+      requires_confirmation: true
+      confirmation_required_message: |
+        Please provide detailed justification for the xRec parameter:
+        1. How will subscribers use xRec values?
+        2. Why is current record (Rec) insufficient?
+        3. Why are previous values specifically needed?
+        4. What is the expected behavior of xRec in this context?
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+
   conditional_restrictions:
     description: "Analysis required. May block or require modification based on context."
-
+    
+    - id: new_parameters_at_end
+      applies_to: ["event-request"]
+      severity: "mandatory"
+      description: "New parameters in existing events must be added at the end of the parameter list"
+      check_method: "parameter_position_analysis"
+      action: "enforce_parameter_order"
+      rule: "When adding new parameters to an existing event, ALWAYS place them at the end of the parameter list, regardless of where the author suggested placing them."
+      detailed_explanation: |
+        **Mandatory Rule:** New parameters in existing events must ALWAYS be added at the END of the parameter list.
+        
+        **Rationale:**
+        - Adding parameters in the middle of the signature would break ALL existing subscribers
+        - Subscribers rely on positional parameter matching
+        - BC runtime compatibility requires backward-compatible signatures
+        - Existing compiled extensions would fail to bind to the modified event
+        
+        **Example - Correct Implementation:**
+        
+        Original event:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeProcess(var Customer: Record Customer; var IsHandled: Boolean)
+        begin
+        end;
+        ```
+        
+        Author requests to add `NewParam: Text` parameter.
+        
+        ❌ Wrong (even if author suggested this):
+        ```al
+        local procedure OnBeforeProcess(var Customer: Record Customer; NewParam: Text; var IsHandled: Boolean)
+        ```
+        
+        ✅ Correct (always add at the end):
+        ```al
+        local procedure OnBeforeProcess(var Customer: Record Customer; var IsHandled: Boolean; NewParam: Text)
+        ```
+        
+        **Implementation Note:** 
+        - When processing event requests that add parameters, always verify the final parameter order
+        - If author suggests a different position, adjust the implementation to place new parameters at the end
+      requires_confirmation: false      
+    
     - id: similar_events_exist
       applies_to: ["event-request"]
       severity: "warning"
@@ -104,7 +311,42 @@ implementation_rules:
       suggestion_template: "A similar event exists at this location: {event_name}. Consider adding parameters to the existing event instead of creating a new one."
       requires_confirmation: true
       documentation_link: ""
-
+    
+    - id: existing_event_may_satisfy_request
+      applies_to: ["event-request"]
+      severity: "info"
+      description: "An existing nearby event may satisfy the author's use case"
+      check_method: "code_flow_analysis"
+      analysis_required: true
+      action: "request_clarification"
+      trigger_conditions:
+        - "Author wants to modify a record before a specific operation"
+        - "Existing event fires at a nearby point with the same record available"
+        - "It's unclear if timing difference between events matters for the use case"
+      analysis_steps:
+        - "Identify the author's stated goal (what they want to modify and why)"
+        - "Check if an existing event provides access to the same record"
+        - "Analyze if the existing event fires at a point where modifications would achieve the same result"
+        - "Consider if data flow to subsequent procedures is affected by event placement"
+      clarification_template: |
+        **Existing Event Analysis**
+        
+        We noticed there is an existing event `{existing_event_name}` that fires at {existing_event_location}.
+        
+        This event provides access to the same `{record_name}` record that you want to modify.
+        
+        **Question:** Could you use the existing `{existing_event_name}` event for your scenario?
+        
+        If not, please explain:
+        1. What specific modifications do you need to make to `{record_name}`?
+        2. Why must these modifications happen before `{target_operation}` rather than at `{existing_event_location}`?
+        3. What behavior would differ if you used the existing event instead?
+        
+        This helps us avoid adding duplicate events when an existing one could serve the same purpose.
+      warning_message: "An existing event may satisfy this request. Clarification needed before adding a new event."
+      requires_confirmation: true
+      documentation_link: ""
+    
     - id: events_in_loops
       applies_to: ["event-request"]
       severity: "warning"
@@ -115,7 +357,7 @@ implementation_rules:
       warning_message: "The proposed event location is inside a loop, which may cause performance issues if subscribers perform heavy operations."
       requires_confirmation: true
       documentation_link: ""
-
+    
     - id: ishandled_in_loops
       applies_to: ["event-request/ishandled"]
       severity: "critical"
@@ -126,26 +368,26 @@ implementation_rules:
       warning_message: "IsHandled events inside loops can cause severe performance degradation as the bypass logic is evaluated on every iteration."
       suggestion_template: |
         Instead of placing an IsHandled event inside the loop, consider adding a regular event **before the loop** after all filtering is complete.
-
+        
         **Recommended approach:**
         1. Apply all necessary filters to the record (e.g., `DetailedVendorLedgEntry.SetRange(...)`)
         2. Add a regular IntegrationEvent AFTER filtering, before the loop starts
         3. Subscribers can then modify the filtered set without bypassing critical code inside the loop
-
+        
         **Example:**
         ```al
         DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
         DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
-
+        
         // Regular event BEFORE loop - allows subscribers to adjust filters
         OnAfterDetailedVendorLedgEntrySetFilters(DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry);
-
+        
         if DetailedVendorLedgEntry.FindSet() then
           repeat
             // Loop body without IsHandled event
           until DetailedVendorLedgEntry.Next() = 0;
         ```
-
+        
         This approach:
         - ✅ Avoids repeated IsHandled checks in the loop
         - ✅ Allows extensions to modify filtering logic
@@ -153,7 +395,49 @@ implementation_rules:
         - ✅ Achieves the same extensibility goal
       requires_confirmation: true
       documentation_link: ""
-
+    
+    - id: ishandled_in_ondelete_trigger
+      applies_to: ["event-request/ishandled"]
+      severity: "blocking"
+      description: "IsHandled event at the beginning of OnDelete trigger"
+      check_method: "code_structure_analysis"
+      analysis_required: true
+      action: "auto_reject"
+      rejection_reason: "IsHandled events at the beginning of OnDelete triggers are not allowed. Bypassing delete operations entirely can cause data inconsistency and orphaned records."
+      warning_message: "IsHandled events cannot be placed at the beginning of OnDelete triggers."
+      suggestion_template: |
+        Instead of using an IsHandled event at the beginning of the OnDelete trigger, consider these alternatives:
+        
+        **Recommended approaches:**
+        1. Use standard OnBeforeDelete event (without IsHandled) to add custom logic before deletion
+        2. Use OnAfterDelete event to handle post-deletion operations
+        3. If you need to prevent deletion conditionally, use TestField or Error statements before the delete operation
+        
+        **Example - Standard event approach:**
+        ```al
+        trigger OnDelete()
+        begin
+            OnBeforeOnDelete(Rec);  // Standard event without IsHandled
+            
+            RemoveApplication();
+            ClearDataExchEntries();
+            RemoveAppliedPaymentEntries();
+            DeletePaymentMatchingDetails();
+            UpdateParentLineStatementAmount();
+            if Find() then;
+            
+            OnAfterOnDelete(Rec);  // Post-deletion event
+        end;
+        ```
+        
+        This approach:
+        - ✅ Allows extensions to add logic before/after deletion
+        - ✅ Maintains data consistency
+        - ✅ Prevents orphaned records
+        - ✅ Follows standard extensibility patterns
+      requires_confirmation: false
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+    
     - id: ishandled_unsafe_code_block
       applies_to: ["event-request/ishandled"]
       severity: "critical"
@@ -170,7 +454,7 @@ implementation_rules:
       suggestion_template: "Consider using a standard event instead of IsHandled for this scenario, or redesign to make the block safely skippable."
       requires_confirmation: true
       documentation_link: ""
-
+    
     - id: sensitive_data_exposure
       applies_to: ["request-for-external"]
       severity: "critical"
@@ -180,7 +464,7 @@ implementation_rules:
       action: "auto_reject"
       rejection_reason: "The procedure accesses or handles sensitive/private data that should not be exposed publicly"
       documentation_link: ""
-
+    
     - id: internal_procedure_exposure
       applies_to: ["request-for-external"]
       severity: "warning"
@@ -191,7 +475,7 @@ implementation_rules:
       warning_message: "This is an internal procedure. Making it public may create API stability concerns."
       requires_confirmation: true
       documentation_link: ""
-
+    
     - id: integration_event_include_sender_true
       applies_to: ["event-request"]
       severity: "critical"
@@ -199,43 +483,975 @@ implementation_rules:
       check_method: "code_pattern_analysis"
       check_patterns: ["IntegrationEvent(true"]
       analysis_required: true
-      action: "request_justification"
-      warning_message: "The event signature has IncludeSender set to true. This requires detailed justification."
+      action: "suggest_this_keyword"
+      warning_message: "The event signature has IncludeSender set to true. Consider using 'this' keyword instead."
       detailed_explanation: |
-        Setting IncludeSender to true in an IntegrationEvent means the event publisher will be passed as a parameter to all subscribers.
-
-        **When used correctly:** Allows subscribers to know which object raised the event (useful for performance tracking, conditional logic based on caller).
-
-        **Risks if not justified:**
-        - Creates hidden dependency on publisher object implementation
-        - Subscribers might have unintended access to publisher's private state
-        - Makes the event coupling stronger and more fragile
-
-        **Required from author:**
-        1. Clear business/functional reason why subscribers MUST know the publisher
-        2. Explanation of how subscribers will use this information
-        3. Confirmation that no alternative (event parameters, context fields) would work
-
-        **Proper use case example:**
+        **Preferred Alternative:** When IncludeSender=true is requested, suggest using the 'this' keyword instead (especially for codeunits).
+        
+        **What is 'this' keyword:**
+        The 'this' keyword in AL provides a reference to the current instance of a codeunit. It can be passed as a parameter to events, allowing subscribers to access the publisher codeunit's public members.
+        
+        **Why 'this' is Better Than IncludeSender=true:**
+        - More explicit and intentional - developer consciously passes the reference
+        - Clearer code - the parameter is visible in the event call
+        - Better control - can choose when to pass the reference
+        - Follows modern AL patterns
+        - More flexible - can pass 'this' to specific events, not all events in the object
+        
+        **Example - Using IncludeSender=true (Less Preferred):**
         ```al
-        // ✅ Justified - Need to track which module called this
-        [IntegrationEvent(true, false)]
-        local procedure OnBeforePostInvoice(var SalesInvoiceHeader: Record "Sales Invoice Header"; var IsHandled: Boolean)
+        codeunit 50100 "Sales Order Processor"
+        {
+            // ❌ Less preferred - IncludeSender=true affects all subscribers
+            [IntegrationEvent(true, false)]
+            local procedure OnBeforeProcessOrder(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean)
+            begin
+            end;
+            
+            local procedure ProcessOrder(var SalesHeader: Record "Sales Header")
+            var
+                IsHandled: Boolean;
+            begin
+                OnBeforeProcessOrder(SalesHeader, IsHandled);
+                // ...
+            end;
+        }
+        ```
+        
+        **Example - Using 'this' Keyword (Preferred):**
+        ```al
+        codeunit 50100 "Sales Order Processor"
+        {
+            // ✅ Preferred - explicit 'this' parameter
+            [IntegrationEvent(false, false)]
+            local procedure OnBeforeProcessOrder(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean; Sender: Codeunit "Sales Order Processor")
+            begin
+            end;
+            
+            local procedure ProcessOrder(var SalesHeader: Record "Sales Header")
+            var
+                IsHandled: Boolean;
+            begin
+                OnBeforeProcessOrder(SalesHeader, IsHandled, this);  // Explicitly passing 'this'
+                // ...
+            end;
+        }
+        ```
+        
+        **Subscriber Example with 'this':**
+        ```al
+        [EventSubscriber(ObjectType::Codeunit, Codeunit::"Sales Order Processor", OnBeforeProcessOrder, '', false, false)]
+        local procedure HandleOnBeforeProcessOrder(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean; Sender: Codeunit "Sales Order Processor")
         begin
+            // Can access Sender's public methods/properties
+            // Sender.SomePublicMethod();
         end;
         ```
-
-        **Anti-pattern example:**
-        ```al
-        // ❌ Not justified - Just passing RecordRef as context
-        [IntegrationEvent(true, false)]
-        local procedure OnProcessRecord(var RecRef: RecordRef; var IsHandled: Boolean)
-        begin
-        end;
+        
+        **Applicability:**
+        - **Codeunits:** Fully supported - always suggest 'this' instead of IncludeSender=true
+        - **Tables:** 'this' can be used but Rec is typically preferred
+        - **Pages:** 'this' can be used for page reference
+        - **Reports:** 'this' can be used for report reference
+        
+        **Agent Response When IncludeSender=true Requested:**
+        1. Identify the object type (codeunit, table, page, etc.)
+        2. For codeunits: Strongly suggest using 'this' keyword instead
+        3. Provide the alternative implementation with explicit 'this' parameter
+        4. Explain the benefits of the 'this' approach
+        5. If author insists on IncludeSender=true, request detailed justification
+        
+        **Response Template:**
+        ```
+        **Alternative Suggestion: Use 'this' Keyword**
+        
+        Instead of setting IncludeSender=true, we recommend passing 'this' explicitly as a parameter:
+        
+        Event signature:
+        `[IntegrationEvent(false, false)]
+        local procedure {EventName}({parameters}; Sender: Codeunit "{Codeunit Name}")`
+        
+        Event call:
+        `{EventName}({parameters}, this);`
+        
+        Benefits:
+        - More explicit and intentional
+        - Better code readability
+        - Follows modern AL patterns
+        
+        Do you want us to implement using the 'this' keyword approach?
         ```
       requires_confirmation: true
-      confirmation_required_message: "Please provide detailed justification for why IncludeSender=true is necessary for this event."
+      confirmation_required_message: |
+        Instead of IncludeSender=true, we recommend using the 'this' keyword explicitly:
+        
+        **Suggested Implementation:**
+        - Add a Sender parameter of the codeunit type to the event
+        - Pass 'this' when calling the event
+        
+        This approach is more explicit and follows modern AL patterns.
+        
+        Do you agree with this approach, or do you have a specific reason for requiring IncludeSender=true?
       documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+    
+    - id: temporary_record_parameter_naming
+      applies_to: ["event-request"]
+      severity: "mandatory"
+      description: "Temporary record parameters must have 'Temp' prefix"
+      check_method: "parameter_naming_analysis"
+      action: "enforce_naming_convention"
+      rule: "When adding a temporary record parameter to an event, the parameter name MUST start with 'Temp' prefix."
+      detailed_explanation: |
+        **Mandatory Rule:** All temporary record parameters in event signatures must have the 'Temp' prefix.
+        
+        **Rationale:**
+        - Clearly indicates to subscribers that the record is temporary
+        - Prevents confusion about data persistence
+        - Follows BC naming conventions for temporary variables
+        - Makes code more readable and self-documenting
+        
+        **Example - Correct Implementation:**
+        
+        ❌ Wrong:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnAfterProcess(var InvtOrderTracking: Record "Invt. Order Tracking" temporary)
+        begin
+        end;
+        ```
+        
+        ✅ Correct:
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnAfterProcess(var TempInvtOrderTracking: Record "Invt. Order Tracking" temporary)
+        begin
+        end;
+        ```
+        
+        **Implementation Note:** 
+        - When processing event requests with temporary record parameters, always verify the 'Temp' prefix is present
+        - If author omits the prefix, add it to the parameter name in the implementation
+      requires_confirmation: false
+    
+    - id: multiple_calls_same_event_location
+      applies_to: ["event-request"]
+      severity: "mandatory"
+      description: "Multiple event calls requested for the same location require separate event publishers"
+      check_method: "event_request_analysis"
+      analysis_required: true
+      action: "enforce_separate_events"
+      rule: "When a request asks for multiple event calls at the same location (e.g., same procedure/trigger), each call MUST have its own separate event publisher with a unique name."
+      detailed_explanation: |
+        **Mandatory Rule:** If a request includes multiple calls for the same event location, each call must be implemented as a separate event publisher with a distinct name.
+        
+        **Rationale:**
+        - Each event should have a single, clear purpose
+        - Separate events allow subscribers to choose which specific event to handle
+        - Improves code readability and maintainability
+        - Allows for better performance optimization (subscribers only listen to events they need)
+        - Provides clearer semantics for what each event represents
+        
+        **Example - Request with Multiple Calls:**
+        
+        Author requests: "Add events in OnBeforePost procedure to handle customer validation and inventory check"
+        
+        ❌ Wrong (single event for multiple purposes):
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePost(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean)
+        begin
+        end;
+        
+        // Called twice in the code for different purposes - WRONG
+        OnBeforePost(SalesHeader, IsHandled);
+        // ... some code ...
+        OnBeforePost(SalesHeader, IsHandled);  // Same event called again
+        ```
+        
+        ✅ Correct (separate events with distinct names):
+        ```al
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePostValidateCustomer(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean)
+        begin
+        end;
+        
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePostCheckInventory(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean)
+        begin
+        end;
+        
+        // Each event has a clear purpose
+        OnBeforePostValidateCustomer(SalesHeader, IsHandledCustomerValidation);
+        // ... some code ...
+        OnBeforePostCheckInventory(SalesHeader, IsHandledInventoryCheck);
+        ```
+        
+        **Naming Convention for Separate Events:**
+        - Use descriptive suffixes that indicate the specific purpose
+        - Follow pattern: `On[Before/After][Operation][SpecificPurpose]`
+        - Examples:
+          - `OnBeforePostValidateCustomer`
+          - `OnBeforePostCheckInventory`
+          - `OnAfterInsertUpdateDimensions`
+          - `OnAfterInsertNotifyWarehouse`
+        
+        **Implementation Steps:**
+        1. Identify all requested event calls in the same location
+        2. Determine the specific purpose of each call
+        3. Create a separate event publisher for each purpose with a unique, descriptive name
+        4. Ensure each event has appropriate parameters for its specific purpose
+        5. Document each event's purpose in the implementation
+      requires_confirmation: false
+
+    - id: ishandled_large_code_block_extraction
+      applies_to: ["event-request/ishandled"]
+      severity: "recommended"
+      description: "Large code blocks with IsHandled should be extracted to separate procedures"
+      check_method: "code_block_analysis"
+      analysis_required: true
+      action: "suggest_refactoring"
+      rule: "When adding an IsHandled event that surrounds a larger block of code, consider extracting that code into a separate procedure and adding an OnBefore[ProcedureName] event with IsHandled."
+      detailed_explanation: |
+        **Recommended Practice:** When an IsHandled event would wrap a significant block of code (typically 5+ lines with related logic), the agent should evaluate whether extracting that code into a separate procedure would be a better approach.
+        
+        **Rationale:**
+        - Improves code organization and readability
+        - Creates a clear, named operation that can be bypassed
+        - Makes the code's intent more explicit
+        - Easier for subscribers to understand what they're bypassing
+        - Better maintainability and testability
+        - Follows single responsibility principle
+        
+        **Agent Analysis Required:**
+        Before suggesting extraction, the agent MUST verify:
+        1. **Code Cohesion:** Are the values/variables in the code block logically connected?
+        2. **Single Purpose:** Does the code block perform a single, identifiable operation?
+        3. **Meaningful Name:** Can a descriptive procedure name be assigned that clearly describes the operation?
+        4. **Parameter Set:** Can the required inputs/outputs be clearly defined as procedure parameters?
+        
+        **Example - Before (IsHandled wrapping inline code):**
+        ```al
+        trigger OnInsert()
+        var
+            IsHandled: Boolean;
+        begin
+            IsHandled := false;
+            OnBeforeValidateAndSetDefaults(Rec, IsHandled);
+            if not IsHandled then begin
+                // Large block of related code
+                if "Customer No." = '' then
+                    "Customer No." := GetDefaultCustomerNo();
+                if "Posting Date" = 0D then
+                    "Posting Date" := WorkDate();
+                if "Document Date" = 0D then
+                    "Document Date" := "Posting Date";
+                ValidateCustomerBlocked("Customer No.");
+                SetDefaultPaymentTerms("Customer No.");
+                SetDefaultShipmentMethod("Customer No.");
+            end;
+        end;
+        ```
+        
+        **Example - After (Extracted to procedure with OnBefore event):**
+        ```al
+        trigger OnInsert()
+        begin
+            ValidateAndSetDefaults();
+        end;
+        
+        local procedure ValidateAndSetDefaults()
+        var
+            IsHandled: Boolean;
+        begin
+            IsHandled := false;
+            OnBeforeValidateAndSetDefaults(Rec, IsHandled);
+            if IsHandled then
+                exit;
+            
+            if "Customer No." = '' then
+                "Customer No." := GetDefaultCustomerNo();
+            if "Posting Date" = 0D then
+                "Posting Date" := WorkDate();
+            if "Document Date" = 0D then
+                "Document Date" := "Posting Date";
+            ValidateCustomerBlocked("Customer No.");
+            SetDefaultPaymentTerms("Customer No.");
+            SetDefaultShipmentMethod("Customer No.");
+            
+            OnAfterValidateAndSetDefaults(Rec);
+        end;
+        
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeValidateAndSetDefaults(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean)
+        begin
+        end;
+        
+        [IntegrationEvent(false, false)]
+        local procedure OnAfterValidateAndSetDefaults(var SalesHeader: Record "Sales Header")
+        begin
+        end;
+        ```
+        
+        **When NOT to Extract:**
+        - Code block is very small (1-3 lines)
+        - Variables in the block are not logically related
+        - No meaningful procedure name can be derived
+        - The code is already well-structured with clear inline purpose
+        - Extraction would require passing too many unrelated parameters
+        
+        **Decision Criteria for Agent:**
+        | Factor | Extract | Keep Inline |
+        |--------|---------|-------------|
+        | Lines of code | 5+ lines | 1-4 lines |
+        | Variables related | Yes, single purpose | No, mixed concerns |
+        | Meaningful name possible | Yes | No clear name |
+        | Parameter count | Reasonable (1-5) | Too many (6+) |
+        | Code reuse potential | Yes | No |
+        
+        **Implementation Steps:**
+        1. Analyze the code block that IsHandled would wrap
+        2. Check if variables/operations are logically connected
+        3. Determine if a meaningful procedure name can be assigned
+        4. If extraction is beneficial, suggest:
+           - New procedure with descriptive name
+           - OnBefore[ProcedureName] event with IsHandled
+           - OnAfter[ProcedureName] event (optional, for post-processing)
+        5. If extraction is NOT beneficial, proceed with inline IsHandled event
+      requires_confirmation: true
+      confirmation_message: |
+        The requested IsHandled event wraps a significant block of code. 
+        
+        **Recommendation:** Extract this code into a separate procedure `{suggested_procedure_name}` and add:
+        - `OnBefore{suggested_procedure_name}` event with IsHandled parameter
+        - `OnAfter{suggested_procedure_name}` event (optional)
+        
+        This approach provides:
+        - Clearer code organization
+        - More meaningful event naming
+        - Better extensibility semantics
+        
+        Do you agree with this approach, or would you prefer the inline IsHandled event as originally requested?
+
+    - id: event_naming_convention
+      applies_to: ["event-request"]
+      severity: "mandatory"
+      description: "Event names must follow the standard naming pattern regardless of author's suggested name"
+      check_method: "naming_validation"
+      action: "enforce_naming_convention"
+      rule: "Agent MUST apply the standard event naming convention even if the author proposes a different name."
+      detailed_explanation: |
+        **Mandatory Rule:** All events must follow the standard naming pattern. If the author suggests a non-compliant name, the agent must use the correct pattern.
+        
+        **Pattern:**
+        ```
+        On[ProcedureName]OnBefore/OnAfter[ActionContext]
+        ```
+        
+        **Components:**
+        1. **Prefix**: Always `On`
+        2. **Procedure Name**: Name of the procedure containing the event
+        3. **Timing**: `OnBefore` or `OnAfter`
+        4. **Action Context**: What specific action is happening
+        
+        **Naming Examples:**
+        
+        | Procedure Name | Action | Correct Event Name | ❌ Wrong Examples |
+        |----------------|--------|-------------------|------------------|
+        | PostSalesLine | Before validation | `OnPostSalesLineOnBeforeValidation` | `OnBeforeValidation`, `BeforePostValidation` |
+        | CalculateAmount | After calculation | `OnCalculateAmountOnAfterCalculation` | `AfterCalculate`, `OnCalculated` |
+        | UpdateInventory | Before update | `OnUpdateInventoryOnBeforeUpdate` | `BeforeInventoryUpdate`, `OnBeforeUpdate` |
+        | ValidateQuantity | After check | `OnValidateQuantityOnAfterCheck` | `OnAfterQuantityValidation`, `AfterValidate` |
+        
+        **Special Naming Cases:**
+        
+        **Before Specific Field Validation:**
+        ```al
+        OnPostSalesLineOnBeforeValidateQuantity
+        OnPostSalesLineOnBeforeValidateUnitPrice
+        ```
+        
+        **After Specific Calculation:**
+        ```al
+        OnCalculateAmountOnAfterVATCalculation
+        OnCalculateAmountOnAfterDiscountCalculation
+        ```
+        
+        **Around Specific Operations:**
+        ```al
+        OnPostDocumentOnBeforeInsertEntry
+        OnPostDocumentOnAfterUpdateHeader
+        ```
+        
+        **Agent Implementation:**
+        1. When processing event request, extract the procedure name and action context
+        2. Apply the naming pattern: `On[ProcedureName]OnBefore/OnAfter[ActionContext]`
+        3. If author suggested a different name, use the correct name without any explanation or comment.
+        4. Never accept event names that don't follow this pattern
+      requires_confirmation: false
+
+    - id: ishandled_initialization_required
+      applies_to: ["event-request/ishandled"]
+      severity: "mandatory"
+      description: "IsHandled parameter must be initialized to false before calling the event"
+      check_method: "code_generation"
+      action: "enforce_initialization"
+      rule: "When adding a new event with IsHandled parameter or adding IsHandled parameter to an existing event, ALWAYS initialize IsHandled to false before the event call."
+      detailed_explanation: |
+        **Mandatory Rule:** The IsHandled parameter must ALWAYS be initialized to `false` immediately before calling an event that has an IsHandled parameter.
+        
+        **Rationale:**
+        - Ensures predictable behavior - IsHandled starts as false (not handled)
+        - Prevents undefined/garbage values from affecting event flow
+        - Subscribers expect IsHandled to be false when they receive the event
+        - Makes code intent clear - the default is to NOT skip the code block
+        - Follows BC standard patterns for IsHandled events
+        
+        **Correct Pattern:**
+        ```al
+        var
+            IsHandled: Boolean;
+        begin
+            IsHandled := false;
+            OnBeforeSalesPost(SalesHeader, IsHandled);
+            if IsHandled then
+                exit;
+            
+            // Standard logic here
+        end;
+        ```
+        
+        **Or with begin...end pattern:**
+        ```al
+        var
+            IsHandled: Boolean;
+        begin
+            IsHandled := false;
+            OnBeforeProcessOrder(SalesHeader, IsHandled);
+            if not IsHandled then begin
+                // Standard logic here
+            end;
+            
+            OnAfterProcessOrder(SalesHeader);
+        end;
+        ```
+        
+        **❌ Wrong - Missing initialization:**
+        ```al
+        var
+            IsHandled: Boolean;
+        begin
+            // ❌ WRONG - IsHandled not initialized!
+            OnBeforeSalesPost(SalesHeader, IsHandled);
+            if IsHandled then
+                exit;
+        end;
+        ```
+        
+        **Agent Implementation:**
+        1. When generating code for IsHandled events, ALWAYS include `IsHandled := false;` before the event call
+        2. The initialization must be on the line immediately before the event call
+        3. This applies to:
+           - New events with IsHandled parameter
+           - Adding IsHandled parameter to existing events
+           - Any event where IsHandled is passed as a parameter
+      requires_confirmation: false
+
+    - id: event_parameter_naming_convention
+      applies_to: ["event-request"]
+      severity: "mandatory"
+      description: "Event parameters must follow naming conventions - no abbreviations for records, descriptive names for simple types"
+      check_method: "naming_validation"
+      action: "enforce_naming_convention"
+      rule: "When defining event publisher parameters, record parameters must use the full table name without spaces, and simple parameters must use descriptive names without abbreviations."
+      detailed_explanation: |
+        **Mandatory Rule:** Event parameters must follow strict naming conventions regardless of what the author suggests.
+        
+        ### Record Parameters - Remove Spaces, No Abbreviations
+        
+        For record parameters, use the table name with spaces removed. Do NOT use abbreviations.
+        
+        | Table Name (in AL) | Correct Parameter Name | ❌ Wrong |
+        |-------------------|------------------------|----------|
+        | "Sales Header" | `SalesHeader` | `SalesHdr`, `SH` |
+        | "Sales Line" | `SalesLine` | `SalesLn`, `SL` |
+        | "Item Ledger Entry" | `ItemLedgerEntry` | `ItemLedgEntry`, `ILE` |
+        | "G/L Entry" | `GLEntry` | `GLE`, `GenLedgEntry` |
+        | "Value Entry" | `ValueEntry` | `ValEntry`, `VE` |
+        | "Gen. Journal Line" | `GenJournalLine` | `GenJnlLine`, `GJL` |
+        | "Purchase Header" | `PurchaseHeader` | `PurchHdr`, `PH` |
+        | "Purchase Line" | `PurchaseLine` | `PurchLn`, `PL` |
+        | "Customer" | `Customer` | `Cust`, `C` |
+        | "Vendor" | `Vendor` | `Vend`, `V` |
+        
+        **Pattern for Record Parameters:**
+        ```al
+        // Table name: "Item Ledger Entry"
+        procedure DoSomething(var ItemLedgEntry: Record "Item Ledger Entry")  // ❌ Wrong abbreviation
+        
+        procedure DoSomething(var ItemLedgerEntry: Record "Item Ledger Entry")  // ✅ Correct
+        ```
+        
+        ```al
+        // Table name: "Sales Header"
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePostSalesDocument(var SalesHdr: Record "Sales Header")  // ❌ Wrong
+        
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePostSalesDocument(var SalesHeader: Record "Sales Header")  // ✅ Correct
+        ```
+        
+        ### Simple Parameters - Use Descriptive Names
+        
+        For simple type parameters (Code, Text, Decimal, Date, Boolean, Integer, etc.), use full descriptive names.
+        
+        ```al
+        // ✅ Good - Descriptive names
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePost(DocumentNo: Code[20]; PostingDate: Date; TotalAmount: Decimal)
+        begin
+        end;
+        
+        // ❌ Bad - Abbreviations
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforePost(DocNo: Code[20]; Date: Date; Amt: Decimal)
+        begin
+        end;
+        ```
+        
+        **Common Simple Parameter Names:**
+        
+        | ❌ Wrong | ✅ Correct |
+        |----------|-----------|
+        | `DocNo` | `DocumentNo` |
+        | `Amt` | `Amount` or `TotalAmount` |
+        | `Qty` | `Quantity` |
+        | `Desc` | `Description` |
+        | `Date` | `PostingDate`, `DocumentDate`, etc. |
+        | `No` | `EntryNo`, `LineNo`, `DocumentNo` |
+        | `Dim` | `Dimension` |
+        | `Pct` | `Percentage` |
+        
+        **Agent Implementation:**
+        1. When generating event parameters, always use full names without abbreviations
+        2. For record parameters: Remove spaces from table name, keep full words
+        3. For simple parameters: Use descriptive names that indicate purpose
+        4. If author suggests abbreviated names, use the correct full names instead
+        5. Never use single-letter or cryptic abbreviations
+      requires_confirmation: false
+
+    - id: consecutive_events_not_allowed
+      applies_to: ["event-request"]
+      severity: "blocking"
+      description: "Consecutive event calls (one directly after another) are not allowed"
+      check_method: "code_location_analysis"
+      analysis_required: true
+      action: "enforce_parameter_addition"
+      rule: "Adding a new event directly above or below an existing event is NOT allowed. Instead, the existing event must be updated with additional parameters to satisfy the new request."
+      detailed_explanation: |
+        **Blocking Rule:** Two event calls placed consecutively (one directly after another with no meaningful code between them) are not acceptable. If someone requests a new event just above or below an existing one, the solution is to update the existing event with new parameters.
+        
+        **Rationale:**
+        - Consecutive events create unnecessary overhead (two event invocations instead of one)
+        - Subscribers would need to subscribe to multiple events for related data
+        - Increases complexity for extension developers
+        - Indicates the existing event is missing parameters rather than needing a new event
+        - Violates the principle of event consolidation
+        
+        **Detection Criteria:**
+        - New event requested immediately before an existing event (no code between)
+        - New event requested immediately after an existing event (no code between)
+        - Only whitespace, comments, or variable declarations between events
+        
+        **Example - NOT Allowed (consecutive events):**
+        ```al
+        local procedure ProcessSalesOrder(var SalesHeader: Record "Sales Header")
+        begin
+            // Some processing code...
+            
+            // ❌ NOT ALLOWED - Two events directly next to each other
+            OnBeforeProcessSalesOrderNewEvent(SalesHeader, CustomerNo);  // New event requested
+            OnBeforeProcessSalesOrder(SalesHeader, IsHandled);           // Existing event
+            
+            if not IsHandled then begin
+                // Processing logic
+            end;
+        end;
+        ```
+        
+        **Example - Correct Solution (update existing event):**
+        ```al
+        local procedure ProcessSalesOrder(var SalesHeader: Record "Sales Header")
+        begin
+            // Some processing code...
+            
+            // ✅ CORRECT - Existing event updated with new parameter
+            OnBeforeProcessSalesOrder(SalesHeader, IsHandled, CustomerNo);  // Added CustomerNo parameter
+            
+            if not IsHandled then begin
+                // Processing logic
+            end;
+        end;
+        
+        // Updated event signature with new parameter at the END
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeProcessSalesOrder(var SalesHeader: Record "Sales Header"; var IsHandled: Boolean; var CustomerNo: Code[20])
+        begin
+        end;
+        ```
+        
+        **Agent Analysis Steps:**
+        1. Identify the requested event location
+        2. Check if there is an existing event directly above or below (within 1-3 lines, excluding whitespace/comments)
+        3. If consecutive event detected:
+           - REJECT the new event request
+           - Identify the existing event
+           - Propose adding the requested parameters to the existing event
+           - Ensure new parameters are added at the END of the parameter list (per `new_parameters_at_end` rule)
+        
+        **What Counts as "Consecutive":**
+        - Direct adjacency (no code between events)
+        - Only whitespace between events
+        - Only comments between events
+        - Only variable declarations between events (no executable code)
+        
+        **What Does NOT Count as "Consecutive":**
+        - Meaningful executable code between events (assignments, function calls, conditionals)
+        - Different logical sections of a procedure
+        - Events in different procedures/triggers
+        
+        **Response Template:**
+        ```
+        ❌ **Request Rejected: Consecutive Events Not Allowed**
+        
+        The requested event location is directly adjacent to an existing event: `{existing_event_name}`.
+        
+        **Solution:** Instead of adding a new event, we will update the existing event with the requested parameters:
+        
+        Current signature:
+        `{current_signature}`
+        
+        Updated signature:
+        `{updated_signature}`
+        
+        This approach:
+        - Avoids unnecessary event overhead
+        - Keeps related data accessible in a single event
+        - Simplifies subscriber implementation
+        ```
+      requires_confirmation: false
+      rejection_message: "Adding a new event directly adjacent to an existing event is not allowed. The existing event should be updated with additional parameters instead."
+
+    - id: ishandled_with_onafter_event_pattern
+      applies_to: ["event-request/ishandled", "event-request/regular"]
+      severity: "mandatory"
+      description: "IsHandled events must preserve OnAfter event execution; OnAfter requests must check for existing IsHandled patterns"
+      check_method: "code_flow_analysis"
+      analysis_required: true
+      action: "enforce_onafter_execution"
+      rule: "When adding an IsHandled event that skips the whole procedure, or when adding OnAfter event to a procedure with existing IsHandled, ensure OnAfter event executes in ALL conditions (even when IsHandled=true)."
+      detailed_explanation: |
+        **Mandatory Rule:** OnBefore and OnAfter procedure events must BOTH execute in all conditions. When IsHandled=true skips the main procedure code, the OnAfter event must still fire.
+        
+        **Scenarios Covered:**
+        
+        **Scenario 1: Adding IsHandled event when OnAfter exists**
+        When someone requests an IsHandled event to skip the whole procedure AND there is already an OnAfter event (or one should be added), implement using `if not IsHandled then begin ... end;` pattern instead of `if IsHandled then exit;`
+        
+        **Scenario 2: Adding OnAfter event (regular event without IsHandled) when IsHandled with exit exists**
+        When someone requests an OnAfter[ProcedureName] event (regular event, no IsHandled parameter) AND there is already an OnBefore with `if IsHandled then exit;`, the agent MUST:
+        1. Identify the existing `if IsHandled then exit;` pattern
+        2. Refactor it to `if not IsHandled then begin ... end;` pattern
+        3. Add the OnAfter event AFTER the `end;` of the if block
+        
+        This ensures the new OnAfter event will execute regardless of whether IsHandled was set to true.
+        
+        **Rationale:**
+        - Subscribers to OnAfter events expect them to fire regardless of whether the main logic was bypassed
+        - OnAfter events are often used for logging, notifications, or cleanup that must happen
+        - Provides consistent event flow for extension developers
+        - Prevents breaking existing OnAfter subscribers when IsHandled is added later
+        - The person requesting OnAfter event likely expects it to ALWAYS fire
+        
+        **Example - WRONG Pattern (OnAfter never fires when IsHandled=true):**
+        ```al
+        procedure GetReservationQty(var QtyReserved: Decimal; var QtyReservedBase: Decimal)
+        var
+            IsHandled: Boolean;
+        begin
+            IsHandled := false;
+            OnBeforeGetReservationQty(Rec, QtyReserved, QtyReservedBase, IsHandled);
+            
+            // ❌ WRONG - OnAfterGetReservationQty will never execute when IsHandled=true
+            if IsHandled then
+                exit;
+            
+            CalcFields("Reserved Quantity", "Reserved Qty. (Base)");
+            QtyReserved := "Reserved Quantity";
+            QtyReservedBase := "Reserved Qty. (Base)";
+            
+            OnAfterGetReservationQty(Rec, QtyReserved, QtyReservedBase);  // Never reached if IsHandled!
+        end;
+        ```
+        
+        **Example - CORRECT Pattern (OnAfter always fires):**
+        ```al
+        procedure GetReservationQty(var QtyReserved: Decimal; var QtyReservedBase: Decimal; var QtyToReserve: Decimal; var QtyToReserveBase: Decimal) Result: Decimal
+        var
+            IsHandled: Boolean;
+        begin
+            IsHandled := false;
+            OnBeforeGetReservationQty(Rec, QtyReserved, QtyReservedBase, QtyToReserve, QtyToReserveBase, Result, IsHandled);
+            
+            // ✅ CORRECT - Using if not IsHandled then begin...end pattern
+            if not IsHandled then begin
+                CalcFields("Reserved Quantity", "Reserved Qty. (Base)");
+                if "Document Type" = "Document Type"::"Return Order" then begin
+                    "Reserved Quantity" := -"Reserved Quantity";
+                    "Reserved Qty. (Base)" := -"Reserved Qty. (Base)";
+                end;
+                QtyReserved := "Reserved Quantity";
+                QtyReservedBase := "Reserved Qty. (Base)";
+                QtyToReserve := "Outstanding Quantity";
+                QtyToReserveBase := "Outstanding Qty. (Base)";
+                Result := "Qty. per Unit of Measure";
+            end;
+            
+            // ✅ OnAfter ALWAYS executes, regardless of IsHandled value
+            OnAfterGetReservationQty(Rec, QtyReserved, QtyReservedBase, QtyToReserve, QtyToReserveBase, Result);
+        end;
+        ```
+        
+        **Agent Analysis Steps:**
+        
+        **When processing IsHandled event request:**
+        1. Check if there is an existing OnAfter[ProcedureName] event in the procedure
+        2. If OnAfter exists OR should logically exist:
+           - Use `if not IsHandled then begin ... end;` pattern
+           - Place OnAfter event AFTER the end of the if block
+        3. If no OnAfter exists and none is needed:
+           - `if IsHandled then exit;` pattern is acceptable
+        
+        **When processing OnAfter event request (regular event, no IsHandled):**
+        1. Check if there is an existing OnBefore[ProcedureName] event with IsHandled parameter
+        2. If OnBefore with IsHandled exists, check the pattern used:
+           - If `if IsHandled then exit;` pattern is used:
+             - MUST refactor to `if not IsHandled then begin ... end;` pattern
+             - Add OnAfter event after the `end;` of the if block
+           - If `if not IsHandled then begin ... end;` pattern already used:
+             - Simply add OnAfter event after the existing `end;`
+        3. If no OnBefore with IsHandled exists:
+           - Simply add OnAfter event at the end of the procedure (before final end)
+        
+        **Pattern Transformation:**
+        
+        From (exit pattern):
+        ```al
+        OnBeforeProcedure(..., IsHandled);
+        if IsHandled then
+            exit;
+        // code
+        ```
+        
+        To (begin...end pattern):
+        ```al
+        OnBeforeProcedure(..., IsHandled);
+        if not IsHandled then begin
+            // code
+        end;
+        OnAfterProcedure(...);
+        ```
+        
+        **Important Notes:**
+        - This rule applies ONLY when IsHandled is meant to skip the WHOLE procedure
+        - Does NOT apply to partial IsHandled patterns (skipping specific code blocks within a procedure)
+        - OnAfter event parameters should include all relevant output values that might have been set by either the standard code OR the subscriber that handled the event
+        - When adding OnAfter event, agent must proactively check for and fix any `if IsHandled then exit;` patterns
+      requires_confirmation: false
+
+    - id: variable_access_level_change
+      applies_to: ["request-for-external"]
+      severity: "info"
+      description: "Variable access level change from var to protected var"
+      check_method: "code_structure_analysis"
+      analysis_required: true
+      action: "ensure_proper_structure"
+      guidance: |
+        When changing variable access level from 'var' to 'protected var', ensure proper code structure:
+        
+        **Structure Requirements:**
+        1. If object currently has NO 'protected var' section, create it AFTER all 'var' declarations
+        2. Place all protected var declarations in the dedicated 'protected var' section
+        3. Proper order: var declarations → protected var section → procedure declarations
+        
+        **Example - Correct Structure:**
+        ```al
+        codeunit 50100 "Example Codeunit"
+        {
+            var
+                ExistingGlobalVar: Text[100];
+                AnotherGlobalVar: Integer;
+        
+            protected var
+                NewlyProtectedVar1: Text[50];
+                NewlyProtectedVar2: Boolean;
+        
+            procedure MyProcedure()
+            begin
+                // ...
+            end;
+        }
+        ```
+        
+        **Common Mistake - Don't do this:**
+        ```al
+        // ❌ Wrong - mixing protected var with var
+        var
+            ExistingGlobalVar: Text[100];
+        protected var
+            NewlyProtectedVar1: Text[50];
+        var
+            AnotherGlobalVar: Integer;  // Wrong location
+        ```
+        
+        **Migration Steps:**
+        1. Identify all variables that need to be protected
+        2. Check if object already has 'protected var' section
+        3. If no protected var section exists: Add 'protected var' section after all 'var' declarations
+        4. Move/add variables to protected var section
+        5. Ensure no var declarations appear after protected var section
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-protected-variables"
+
+    - id: alternative_solution_requires_confirmation
+      applies_to: ["event-request/regular", "event-request/ishandled", "enum-request", "extensibility-enhancement", "request-for-external"]
+      severity: "mandatory"
+      description: "When agent's suggested implementation location differs from author's request, require author confirmation"
+      check_method: "solution_comparison"
+      analysis_required: true
+      action: "request_confirmation"
+      rule: "If the agent determines that a better solution exists in a DIFFERENT location than what the author requested, treat as MISSING_INFO and request author confirmation."
+      detailed_explanation: |
+        **Mandatory Rule:** When the agent's codebase analysis reveals that the optimal solution 
+        involves a different location, procedure, or approach than what the author explicitly requested,
+        the agent MUST NOT proceed with approval. Instead, apply 'missing-info' label and request confirmation.
+        
+        **Rationale:**
+        - The author may have specific reasons for requesting a particular location
+        - The author may not be aware of a better alternative
+        - Implementing something different than requested without confirmation violates trust
+        - The author should make the final decision on which approach to take
+        
+        **Detection Criteria:**
+        1. Author requests event in procedure A, but agent determines procedure B is better
+        2. Author requests event in Object X, but agent finds solution should be in Object Y
+        3. Author requests specific parameters, but agent finds different parameters are needed
+        4. Author's described use case is better served by a different approach entirely
+        
+        **Example Scenario:**
+        Request: "Add OnAfterIsCancellationSupported event to TestPurchaseLines in Codeunit 1313"
+        Agent Analysis: "The IsCancellationSupported logic is actually in Table 123 Purch. Inv. Line, 
+                        not in Codeunit 1313. Adding event in the table would be more appropriate."
+        
+        **Correct Agent Response:**
+        - Apply label: `missing-info`
+        - DO NOT apply team label or `agent-analyzed`
+        - Post comment explaining the alternative and requesting confirmation
+        
+        **Agent Comment Template:**
+        ```
+        Thank you for your request!
+        
+        After analyzing the codebase, I found that [brief explanation of difference].
+        
+        **Your request:** [what author asked for]
+        **Suggested alternative:** [what agent recommends and why]
+        
+       Please confirm if this alternative approach works for your scenario, or let us know if you specifically need a change like it is requested and what are the reasons.        
+        ```
+        
+        **What Counts as "Different Location":**
+        - Different procedure than requested
+        - Different object (codeunit, table, page, etc.) than requested
+        - Different file/layer than requested
+        - Fundamentally different approach (e.g., new event vs. extending existing)
+        
+        **What Does NOT Require Confirmation:**
+        - Minor parameter adjustments that don't change the location
+        - Adding standard parameters like IsHandled when appropriate
+        - Naming convention corrections
+        - Technical improvements that don't change the core request location
+      requires_confirmation: true
+      rejection_message: "The suggested implementation differs from the original request. Author confirmation is required before proceeding."
+
+    - id: manual_binding_for_heavily_used_procedures
+      applies_to: ["event-request/regular", "event-request/ishandled"]
+      severity: "info"
+      description: "Events in heavily-used procedures should include manual binding guidance note"
+      check_method: "usage_analysis"
+      analysis_required: true
+      action: "add_documentation_note"
+      rule: "When suggesting an event in a procedure that is heavily used across the codebase for different scenarios, include a note about EventSubscriberInstance property and manual binding considerations."
+      detailed_explanation: |
+        **Guidance Rule:** When an event is being added to a procedure that is called from multiple 
+        places across the codebase for different business scenarios, the agent should include a note 
+        in the comment about manual binding considerations.
+        
+        **Rationale:**
+        - Procedures can be called from multiple places for different purposes/scenarios
+        - Event subscribers bound with automatic binding will fire on EVERY call
+        - This may cause unintended side effects if subscriber was meant for a specific scenario
+        - Manual binding gives control over when the subscriber is active
+        - The author may only want their subscriber to fire in specific calling contexts
+        
+        **When to Include This Note:**
+        1. Procedure is called from multiple places in the codebase
+        2. Procedure serves different business scenarios (e.g., IsCancellationSupported used by both Sales and Purchase correction flows)
+        3. The procedure is a utility/helper function used broadly
+        4. Public procedures that can be called from extensions
+        5. The event parameters don't inherently limit scope (e.g., no specific document type filter)
+        
+        **When NOT Required:**
+        - Events in procedures with very limited/specific usage
+        - Events with parameters that naturally filter the scenario (e.g., specific document type)
+        - Events in page/report triggers where context is clear
+        - Procedures only called from one logical flow
+        
+        **Documentation Note Template:**
+        ```
+        📝 **Note:** This procedure is called from multiple places in the codebase for different scenarios.
+        If you need your event subscriber to fire only in specific scenarios, consider using 
+        [Manual Event Subscription Binding](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-event-binding).
+        ```
+        
+        **Example - Heavily Used Procedure:**
+        ```al
+        // IsCancellationSupported is called from:
+        // - Correct Posted Purch. Invoice (Codeunit 1313)
+        // - Correct Posted Sales Invoice (Codeunit 1319)
+        // - Cancel Posted Purch. Invoice (Codeunit 1313)
+        // - Cancel Posted Sales Invoice (Codeunit 1319)
+        // - And potentially more places...
+        
+        procedure IsCancellationSupported(): Boolean
+        var
+            Result: Boolean;
+        begin
+            Result := Type in [Type::" ", Type::Item, Type::"G/L Account", Type::"Charge (Item)", Type::Resource];
+            OnAfterIsCancellationSupported(Rec, Result);  // Event fires for ALL scenarios above
+            exit(Result);
+        end;
+        ```
+        
+        In this example, if an extension subscribes to OnAfterIsCancellationSupported, it will fire for 
+        BOTH purchase and sales invoice corrections. If the subscriber only wants to handle purchase 
+        invoices, they should use manual binding.
+        
+        **Agent Implementation:**
+        1. During codebase analysis, check usage patterns of the target procedure
+        2. If procedure is called from multiple places/scenarios, set flag to include manual binding note
+        3. When generating approval comment, append the documentation note
+        4. Link to official Microsoft documentation
+      requires_confirmation: false
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-event-binding"
 
   multi_change_policy:
     enabled: true
@@ -246,22 +1462,22 @@ implementation_rules:
 
 # Feasibility Outcome Templates
 feasibility_outcomes:
-
+  
   can_implement:
     label: "agent-analyzed"
     action: "approve_and_assign_team"
     comment_template: "request_approved_ready_for_implementation"
-
+  
   cannot_implement:
     label: "agent-not-processable"
     action: "add_comment_stop"
     comment_template: "cannot_implement_blocking_issues"
-
+  
   needs_modification:
     label: "missing-info"
     action: "request_confirmation"
     comment_template: "implementation_differs_suggest_alternative"
-
+  
   needs_clarification:
     label: "missing-info"
     action: "request_clarification"

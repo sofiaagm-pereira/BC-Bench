@@ -120,7 +120,14 @@ documentation:
 
 # Configuration Files
 config_files:
-  requirements: "config/requirements/"
+  requirements:
+    base_path: "config/requirements/"
+    general_requirements: "ea_config_general_requirements.yaml"  # Common to ALL types
+    type_specific:
+      event_request: "ea_config_event_request_requirements.yaml"
+      request_for_external: "ea_config_request_for_external_requirements.yaml"
+      enum_request: "ea_config_enum_request_requirements.yaml"
+      extensibility_enhancement: "ea_config_extensibility_enhancement_requirements.yaml"
   implementation_rules: "config/implementation-rules/"
   team_mapping: "config/team-configuration/team-namespace-mapping.yaml"
   agent_settings: "config/ea_config_agent_settings.yaml"

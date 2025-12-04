@@ -1,0 +1,725 @@
+entries:
+  - instance_id: microsoft__ALAppExtensions-29403
+    input:
+      title: "[Event Request] Table 5050 Contact - OnBeforeCreateEmployeeLink"
+      description: |
+        ### Why do you need this change?
+        In 4PS Construct we need to be able to add checks before creating the employee link.
+
+        ### Describe the request
+
+        Dear ALAppExtensions team,
+        On behalf of 4PS I would like to request integration event 'OnBeforeCreateEmployeeLink' to be added to procedure 'CreateEmployeeLink' in table 5050 Contact.
+
+        [Scope('OnPrem')]
+        procedure CreateEmployeeLink()
+        var
+            ContBusRel: Record "Contact Business Relation";
+        begin
+            OnBeforeCreateEmployeeLink(Rec); // new
+            CheckContactType(Type::Person);
+            CheckIfPrivacyBlockedGeneric();
+
+            MarketingSetup.GetRecordOnce();
+            MarketingSetup.TestField("Bus. Rel. Code for Employees");
+            CreateLink(Page::"Employee Link", MarketingSetup."Bus. Rel. Code for Employees", ContBusRel."Link to Table"::Employee);
+        end;
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeCreateEmployeeLink(var Contact: Record Contact)
+        begin
+            //new
+        end;
+      comments: ""
+
+    expected:
+      labels: "SCM, event-request"
+      comments: ""
+  - instance_id: microsoft__ALAppExtensions-29426
+    input:
+      title: '[TEST][Event Request] Report 31004 "Adjust Exchange Rates CZL".Vendor.OnAfterGetRecord'
+      description: |
+        ### Why do you need this change?
+
+        Please add new events that allows to us create for CZ legislation option "Exclude Advance Payment" from currency adjust.
+
+        ### Describe the request
+
+        dataitem(Vendor; Vendor)
+          {
+            DataItemTableView = sorting("No.");
+            RequestFilterFields = "No.";
+
+            trigger OnAfterGetRecord()
+            var
+          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+            IsHandled: Boolean;
+            //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+            begin
+              VendNo := VendNo + 1;
+              WindowDialog.Update(3, Round(VendNo / VendNoTotal * 10000, 1));
+
+              TempVendorLedgerEntry.DeleteAll();
+
+              Currency.CopyFilter(Code, VendorLedgerEntry."Currency Code");
+              VendorLedgerEntry.FilterGroup(2);
+              VendorLedgerEntry.SetFilter("Currency Code", '<>%1', '');
+              VendorLedgerEntry.FilterGroup(0);
+
+              DetailedVendorLedgEntry.Reset();
+              DetailedVendorLedgEntry.SetCurrentKey("Vendor No.", "Posting Date", "Entry Type");
+              DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
+              DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
+              if DetailedVendorLedgEntry.FindSet() then
+                  repeat
+                        VendorLedgerEntry."Entry No." := DetailedVendorLedgEntry."Vendor Ledger Entry No.";
+                        if VendorLedgerEntry.Find('=') then
+                          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+                        begin
+                        IsHandled := false;
+                          OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(AdjustExchangeRates, DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry, StartDate, EndDate, IsHandled);
+                          if not IsHandled then
+                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+                                    if (VendorLedgerEntry."Posting Date" >= StartDate) and
+                                      (VendorLedgerEntry."Posting Date" <= EndDate)
+                                    then begin
+                                        TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
+                                        if not TempVendorLedgerEntry.Insert() then
+                                            TempVendorLedgerEntry.Init();
+                                    end;
+                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+                            end;
+                      //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+                      until DetailedVendorLedgEntry.Next() = 0;
+
+                        VendorLedgerEntry.SetCurrentKey("Vendor No.", Open);
+                        VendorLedgerEntry.SetRange("Vendor No.", "No.");
+                        VendorLedgerEntry.SetRange(Open, true);
+                        VendorLedgerEntry.SetRange("Posting Date", 0D, EndDate);
+                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
+                        OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(AdjustExchangeRates, VendorLedgerEntry);
+                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:END
+                        if VendorLedgerEntry.FindSet() then
+                            repeat
+                                TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
+                                if not TempVendorLedgerEntry.Insert() then
+                                    TempVendorLedgerEntry.Init();
+                            until VendorLedgerEntry.Next() = 0;
+                      VendorLedgerEntry.Reset();
+
+                        OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust(TempVendorLedgerEntry);
+                    end;
+                }
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Vendor Ledger Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; EndDate: Date; StartDate: Date; var IsHandled: Boolean)
+            begin
+            end;
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; VendorLedgerEntry: Record "Vendor Ledger Entry")
+            begin
+            end;
+            //--
+      comments: ""
+
+    expected:
+      labels: ""
+      comments:
+        - author: Agent
+          body: |
+            Hi @AleksandricMarko,
+
+            Thanks for submitting the issue. To help us address it efficiently, could you please update it to include the minimum required details?
+
+            📚 [Extensibility Contribution Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility)
+
+            **Missing/Incorrect Information:**
+
+            - **Invocation Example**: How the event will be raised in your code, with a sample subscriber showing intended use
+            - **Alternatives Evaluated**: Which existing events, patterns, or extensibility points were tried and why they weren't sufficient
+            - **Justification for IsHandled**: Why a standard (non-IsHandled) event, redesign, or contribution isn't feasible
+            - **Performance Considerations**: Expected frequency of execution and any potential impact (loops, large datasets, locking, external calls)
+            - **Data Sensitivity Review**: Confirmation that the event doesn't expose sensitive or security-relevant data, or rationale if it must
+            - **Multi-Extension Interaction**: Risks if multiple extensions subscribe and explanation of how conflicts or ordering are mitigated
+
+            Let us know once it's updated — we'll be happy to take a closer look.
+  - instance_id: microsoft__ALAppExtensions-29426_02
+    input:
+      title: '[TEST][Event Request] Report 31004 "Adjust Exchange Rates CZL".Vendor.OnAfterGetRecord'
+      description: |
+        ### Why do you need this change?
+
+        Please add new events that allows to us create for CZ legislation option "Exclude Advance Payment" from currency adjust.
+
+        ### Describe the request
+
+        dataitem(Vendor; Vendor)
+          {
+            DataItemTableView = sorting("No.");
+            RequestFilterFields = "No.";
+
+            trigger OnAfterGetRecord()
+            var
+          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+            IsHandled: Boolean;
+            //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+            begin
+              VendNo := VendNo + 1;
+              WindowDialog.Update(3, Round(VendNo / VendNoTotal * 10000, 1));
+
+              TempVendorLedgerEntry.DeleteAll();
+
+              Currency.CopyFilter(Code, VendorLedgerEntry."Currency Code");
+              VendorLedgerEntry.FilterGroup(2);
+              VendorLedgerEntry.SetFilter("Currency Code", '<>%1', '');
+              VendorLedgerEntry.FilterGroup(0);
+
+              DetailedVendorLedgEntry.Reset();
+              DetailedVendorLedgEntry.SetCurrentKey("Vendor No.", "Posting Date", "Entry Type");
+              DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
+              DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
+              if DetailedVendorLedgEntry.FindSet() then
+                  repeat
+                        VendorLedgerEntry."Entry No." := DetailedVendorLedgEntry."Vendor Ledger Entry No.";
+                        if VendorLedgerEntry.Find('=') then
+                          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+                        begin
+                        IsHandled := false;
+                          OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(AdjustExchangeRates, DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry, StartDate, EndDate, IsHandled);
+                          if not IsHandled then
+                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+                                    if (VendorLedgerEntry."Posting Date" >= StartDate) and
+                                      (VendorLedgerEntry."Posting Date" <= EndDate)
+                                    then begin
+                                        TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
+                                        if not TempVendorLedgerEntry.Insert() then
+                                            TempVendorLedgerEntry.Init();
+                                    end;
+                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+                            end;
+                      //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+                      until DetailedVendorLedgEntry.Next() = 0;
+
+                        VendorLedgerEntry.SetCurrentKey("Vendor No.", Open);
+                        VendorLedgerEntry.SetRange("Vendor No.", "No.");
+                        VendorLedgerEntry.SetRange(Open, true);
+                        VendorLedgerEntry.SetRange("Posting Date", 0D, EndDate);
+                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
+                        OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(AdjustExchangeRates, VendorLedgerEntry);
+                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:END
+                        if VendorLedgerEntry.FindSet() then
+                            repeat
+                                TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
+                                if not TempVendorLedgerEntry.Insert() then
+                                    TempVendorLedgerEntry.Init();
+                            until VendorLedgerEntry.Next() = 0;
+                      VendorLedgerEntry.Reset();
+
+                        OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust(TempVendorLedgerEntry);
+                    end;
+                }
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Vendor Ledger Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; EndDate: Date; StartDate: Date; var IsHandled: Boolean)
+            begin
+            end;
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; VendorLedgerEntry: Record "Vendor Ledger Entry")
+            begin
+            end;
+            //--
+      comments:
+        - author: Agent
+          body: |
+            Hi @AleksandricMarko,
+
+            Thanks for submitting the issue. To help us address it efficiently, could you please update it to include the minimum required details?
+
+            📚 [Extensibility Contribution Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility)
+
+            **Missing/Incorrect Information:**
+
+            - **Invocation Example**: How the event will be raised in your code, with a sample subscriber showing intended use
+            - **Alternatives Evaluated**: Which existing events, patterns, or extensibility points were tried and why they weren't sufficient
+            - **Justification for IsHandled**: Why a standard (non-IsHandled) event, redesign, or contribution isn't feasible
+            - **Performance Considerations**: Expected frequency of execution and any potential impact (loops, large datasets, locking, external calls)
+            - **Data Sensitivity Review**: Confirmation that the event doesn't expose sensitive or security-relevant data, or rationale if it must
+            - **Multi-Extension Interaction**: Risks if multiple extensions subscribe and explanation of how conflicts or ordering are mitigated
+
+            Let us know once it's updated — we'll be happy to take a closer look.
+
+        - author: Partner
+          body: |
+            Hello,
+            please check bellow
+            codeunit 50100 "CZL Advance Payment Excl."
+            {
+                [EventSubscriber(ObjectType::Report, Report::"Adjust Exchange Rates CZL", 'OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry', '', false, false)]
+                local procedure ExcludeAdvancePaymentsFromAdjustment(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Detailed Vendor Ledg. Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; StartDate: Date; EndDate: Date; var IsHandled: Boolean)
+                var
+                    VendorLedgerEntryLocal: Record "Vendor Ledger Entry";
+                begin
+                    // Exclude advance payments from currency adjustment for CZ legislation
+                    VendorLedgerEntryLocal.Get(VendorLedgerEntry."Entry No.");
+                    if VendorLedgerEntryLocal."Prepayment" then begin
+                        IsHandled := true; // Skip this entry from adjustment
+                        exit;
+                    end;
+                end;
+            }
+
+            Alternatives Evaluated
+            We evaluated the following alternatives:
+
+            Existing OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust event: This event fires after all entries are already collected in the temp table, making it too late to exclude specific entries before they're processed.
+            Modifying the report directly: Not feasible as we need to maintain compatibility with base application updates and cannot modify Microsoft's localization code.
+            Post-processing with another report: Would require reversing adjustments, creating additional G/L entries and complexity, violating clean accounting practices.
+            Custom filtering via request page: The standard filter options don't provide field-level filtering for prepayment/advance payment flags.
+            None of these approaches allow us to conditionally exclude specific ledger entries during the collection phase based on CZ-specific business rules.
+
+            Justification for IsHandled
+            IsHandled is necessary because:
+
+            Conditional exclusion logic: We need to prevent specific vendor ledger entries (advance payments) from being added to the temporary table based on runtime evaluation. A standard event would still process all entries.
+            Legal compliance: CZ legislation requires advance payments to be excluded from currency adjustments. IsHandled provides the control mechanism to enforce this requirement.
+            Cannot contribute to base code: This is CZ-specific legislation that shouldn't be in the base localization report. The flexibility to stop processing per entry is essential.
+            Standard event insufficient: Without IsHandled, the entry would still be added to TempVendorLedgerEntry even after our subscriber runs, defeating the purpose.
+
+            Performance Considerations
+            Execution frequency: This report typically runs monthly or quarterly during period-end closing for exchange rate adjustments. Not a high-frequency operation.
+            Performance impact: Minimal - the event fires once per vendor ledger entry during the loop (typically 100-1000 entries per vendor). Our subscriber performs a single table read to check the prepayment flag.
+            No loops or external calls: The subscriber code is lightweight - just checking a boolean field value and setting IsHandled.
+            No locking concerns: Read-only operation during report execution.
+
+            Data Sensitivity Review
+            No sensitive data exposure: The event parameters include standard vendor ledger entry data (entry numbers, dates) that subscribers already have access to through normal table permissions.
+            No security concerns: The report already processes this data; the event doesn't expose any additional sensitive information.
+            Existing permission model applies: Only users with permissions to run the "Adjust Exchange Rates CZL" report and read vendor ledger entries can utilize this event.
+
+            Multi-Extension Interaction
+            Low conflict risk: The IsHandled pattern naturally handles multiple subscribers:
+            First subscriber to set IsHandled := true prevents the entry from being processed
+            Subsequent subscribers can check if IsHandled is already true before executing their logic
+            Expected usage: This is a CZ localization-specific scenario; unlikely that multiple extensions would need to exclude the same entries
+
+        - author: Agent
+          body: |
+            Hello @AleksandricMarko
+            Would it be acceptable for you to have OnAfterGetRecordVendorOnAfterFilterDetailedVendorLedgEntry event instead adding it in the loop?
+
+        - author: Partner
+          body: |
+            It is a bit more coding for us, but it should work
+
+    expected:
+      labels: "Finance, event-request"
+      comments: ""
+  - instance_id: microsoft__ALAppExtensions-29426_03
+    input:
+      title: '[TEST][Event Request] Report 31004 "Adjust Exchange Rates CZL".Vendor.OnAfterGetRecord'
+      description: |
+        ### Why do you need this change?
+
+        Please add new events that allows to us create for CZ legislation option "Exclude Advance Payment" from currency adjust.
+
+        ### Describe the request
+
+        dataitem(Vendor; Vendor)
+          {
+            DataItemTableView = sorting("No.");
+            RequestFilterFields = "No.";
+
+            trigger OnAfterGetRecord()
+            var
+          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+            IsHandled: Boolean;
+            //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+            begin
+              VendNo := VendNo + 1;
+              WindowDialog.Update(3, Round(VendNo / VendNoTotal * 10000, 1));
+
+              TempVendorLedgerEntry.DeleteAll();
+
+              Currency.CopyFilter(Code, VendorLedgerEntry."Currency Code");
+              VendorLedgerEntry.FilterGroup(2);
+              VendorLedgerEntry.SetFilter("Currency Code", '<>%1', '');
+              VendorLedgerEntry.FilterGroup(0);
+
+              DetailedVendorLedgEntry.Reset();
+              DetailedVendorLedgEntry.SetCurrentKey("Vendor No.", "Posting Date", "Entry Type");
+              DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
+              DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
+              if DetailedVendorLedgEntry.FindSet() then
+                  repeat
+                        VendorLedgerEntry."Entry No." := DetailedVendorLedgEntry."Vendor Ledger Entry No.";
+                        if VendorLedgerEntry.Find('=') then
+                          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+                        begin
+                        IsHandled := false;
+                          OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(AdjustExchangeRates, DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry, StartDate, EndDate, IsHandled);
+                          if not IsHandled then
+                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+                                    if (VendorLedgerEntry."Posting Date" >= StartDate) and
+                                      (VendorLedgerEntry."Posting Date" <= EndDate)
+                                    then begin
+                                        TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
+                                        if not TempVendorLedgerEntry.Insert() then
+                                            TempVendorLedgerEntry.Init();
+                                    end;
+                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+                            end;
+                      //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+                      until DetailedVendorLedgEntry.Next() = 0;
+
+                        VendorLedgerEntry.SetCurrentKey("Vendor No.", Open);
+                        VendorLedgerEntry.SetRange("Vendor No.", "No.");
+                        VendorLedgerEntry.SetRange(Open, true);
+                        VendorLedgerEntry.SetRange("Posting Date", 0D, EndDate);
+                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
+                        OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(AdjustExchangeRates, VendorLedgerEntry);
+                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:END
+                        if VendorLedgerEntry.FindSet() then
+                            repeat
+                                TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
+                                if not TempVendorLedgerEntry.Insert() then
+                                    TempVendorLedgerEntry.Init();
+                            until VendorLedgerEntry.Next() = 0;
+                      VendorLedgerEntry.Reset();
+
+                        OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust(TempVendorLedgerEntry);
+                    end;
+                }
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Vendor Ledger Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; EndDate: Date; StartDate: Date; var IsHandled: Boolean)
+            begin
+            end;
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
+
+            //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; VendorLedgerEntry: Record "Vendor Ledger Entry")
+            begin
+            end;
+            //--
+      comments:
+        - author: Agent
+          body: |
+            Hi @AleksandricMarko,
+
+            Thanks for submitting the issue. To help us address it efficiently, could you please update it to include the minimum required details?
+
+            📚 [Extensibility Contribution Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility)
+
+            **Missing/Incorrect Information:**
+
+            - **Invocation Example**: How the event will be raised in your code, with a sample subscriber showing intended use
+            - **Alternatives Evaluated**: Which existing events, patterns, or extensibility points were tried and why they weren't sufficient
+            - **Justification for IsHandled**: Why a standard (non-IsHandled) event, redesign, or contribution isn't feasible
+            - **Performance Considerations**: Expected frequency of execution and any potential impact (loops, large datasets, locking, external calls)
+            - **Data Sensitivity Review**: Confirmation that the event doesn't expose sensitive or security-relevant data, or rationale if it must
+            - **Multi-Extension Interaction**: Risks if multiple extensions subscribe and explanation of how conflicts or ordering are mitigated
+
+            Let us know once it's updated — we'll be happy to take a closer look.
+
+        - author: Partner
+          body: |
+            Hello,
+            please check bellow
+            codeunit 50100 "CZL Advance Payment Excl."
+            {
+                [EventSubscriber(ObjectType::Report, Report::"Adjust Exchange Rates CZL", 'OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry', '', false, false)]
+                local procedure ExcludeAdvancePaymentsFromAdjustment(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Detailed Vendor Ledg. Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; StartDate: Date; EndDate: Date; var IsHandled: Boolean)
+                var
+                    VendorLedgerEntryLocal: Record "Vendor Ledger Entry";
+                begin
+                    // Exclude advance payments from currency adjustment for CZ legislation
+                    VendorLedgerEntryLocal.Get(VendorLedgerEntry."Entry No.");
+                    if VendorLedgerEntryLocal."Prepayment" then begin
+                        IsHandled := true; // Skip this entry from adjustment
+                        exit;
+                    end;
+                end;
+            }
+
+            Alternatives Evaluated
+            We evaluated the following alternatives:
+
+            Existing OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust event: This event fires after all entries are already collected in the temp table, making it too late to exclude specific entries before they're processed.
+            Modifying the report directly: Not feasible as we need to maintain compatibility with base application updates and cannot modify Microsoft's localization code.
+            Post-processing with another report: Would require reversing adjustments, creating additional G/L entries and complexity, violating clean accounting practices.
+            Custom filtering via request page: The standard filter options don't provide field-level filtering for prepayment/advance payment flags.
+            None of these approaches allow us to conditionally exclude specific ledger entries during the collection phase based on CZ-specific business rules.
+
+            Justification for IsHandled
+            IsHandled is necessary because:
+
+            Conditional exclusion logic: We need to prevent specific vendor ledger entries (advance payments) from being added to the temporary table based on runtime evaluation. A standard event would still process all entries.
+            Legal compliance: CZ legislation requires advance payments to be excluded from currency adjustments. IsHandled provides the control mechanism to enforce this requirement.
+            Cannot contribute to base code: This is CZ-specific legislation that shouldn't be in the base localization report. The flexibility to stop processing per entry is essential.
+            Standard event insufficient: Without IsHandled, the entry would still be added to TempVendorLedgerEntry even after our subscriber runs, defeating the purpose.
+
+            Performance Considerations
+            Execution frequency: This report typically runs monthly or quarterly during period-end closing for exchange rate adjustments. Not a high-frequency operation.
+            Performance impact: Minimal - the event fires once per vendor ledger entry during the loop (typically 100-1000 entries per vendor). Our subscriber performs a single table read to check the prepayment flag.
+            No loops or external calls: The subscriber code is lightweight - just checking a boolean field value and setting IsHandled.
+            No locking concerns: Read-only operation during report execution.
+
+            Data Sensitivity Review
+            No sensitive data exposure: The event parameters include standard vendor ledger entry data (entry numbers, dates) that subscribers already have access to through normal table permissions.
+            No security concerns: The report already processes this data; the event doesn't expose any additional sensitive information.
+            Existing permission model applies: Only users with permissions to run the "Adjust Exchange Rates CZL" report and read vendor ledger entries can utilize this event.
+
+            Multi-Extension Interaction
+            Low conflict risk: The IsHandled pattern naturally handles multiple subscribers:
+            First subscriber to set IsHandled := true prevents the entry from being processed
+            Subsequent subscribers can check if IsHandled is already true before executing their logic
+            Expected usage: This is a CZ localization-specific scenario; unlikely that multiple extensions would need to exclude the same entries
+
+    expected:
+      labels: ""
+      comments:
+        - author: Agent
+          body: |
+            Hello @AleksandricMarko
+            Would it be acceptable for you to have OnAfterGetRecordVendorOnAfterFilterDetailedVendorLedgEntry event instead adding it in the loop?
+  - instance_id: microsoft__ALAppExtensions-29435
+    input:
+      title: '[Event Request] report 8051 "Contract Deferrals Release"'
+      description: |
+        ### Why do you need this change?
+        We would like to be able to set additional filters for Customer/Vendor Contract Deferrals.
+        Can you please implement the following Event?
+
+        ### Describe the request
+        local procedure FilterAndCountContractDeferrals()
+        begin
+          ContractDeferralIteration := 0;
+
+          GlobalCustomerContractDeferral.SetRange("Posting Date", 0D, PostUntilDate);
+          GlobalCustomerContractDeferral.SetRange("Document Posting Date", 0D, PostUntilDate);
+          GlobalCustomerContractDeferral.SetRange(Released, false);
+          GlobalVendorContractDeferral.SetRange("Posting Date", 0D, PostUntilDate);
+          GlobalVendorContractDeferral.SetRange("Document Posting Date", 0D, PostUntilDate);
+          GlobalVendorContractDeferral.SetRange(Released, false);
+          **OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(GlobalCustomerContractDeferral, GlobalVendorContractDeferral);**
+          TotalContractDeferralsCount := GlobalVendorContractDeferral.Count + GlobalCustomerContractDeferral.Count;
+        end;
+
+
+        **[IntegrationEvent(false, false)]
+        local procedure OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(var CustSubContractDeferral: Record "Cust. Sub. Contract Deferral"; var VendSubContractDeferral: Record "Vend. Sub. Contract Deferral")
+        begin
+        end;**
+
+      comments: ""
+
+    expected:
+      labels: "Finance, event-request"
+      comments:
+        - author: Agent
+          body: |
+            ✅ Analysis complete - approved for implementation
+            **Implementation:**
+            Add the following event to the `FilterAndCountContractDeferrals` procedure in report 8051 \"Contract Deferrals Release\":
+            ```al
+              local procedure FilterAndCountContractDeferrals()
+              begin
+                  ContractDeferralIteration := 0;
+                  GlobalCustomerContractDeferral.SetRange(\"Posting Date\", 0D, PostUntilDate);
+                  GlobalCustomerContractDeferral.SetRange(\"Document Posting Date\", 0D, PostUntilDate);
+                  GlobalCustomerContractDeferral.SetRange(Released, false);
+                  GlobalVendorContractDeferral.SetRange(\"Posting Date\", 0D, PostUntilDate);
+                  GlobalVendorContractDeferral.SetRange(\"Document Posting Date\", 0D, PostUntilDate);
+                  GlobalVendorContractDeferral.SetRange(Released, false);
+                  OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(GlobalCustomerContractDeferral, GlobalVendorContractDeferral);
+                  TotalContractDeferralsCount := GlobalVendorContractDeferral.Count + GlobalCustomerContractDeferral.Count;
+              end;
+
+              [IntegrationEvent(false, false)]
+              local procedure OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(var CustSubContractDeferral: Record \"Cust. Sub. Contract Deferral\"; var VendSubContractDeferral: Record \"Vend. Sub. Contract Deferral\")
+              begin
+              end;
+            ```
+  - instance_id: microsoft__ALAppExtensions-29439
+    input:
+      title: '[Event Request] Report 5802 "Inventory Valuation - WIP".IsNotWIP'
+      description: |
+        Why do you need this change?
+        From our point of you view "Entry Type"::"Rounding" should IsNotWIP for mentioned value same as for "Value Entry"."Entry Type"::"Direct Cost". Event allows to us own logic.
+
+        Describe the request
+        local procedure IsNotWIP(): Boolean
+        var
+        //--------------------------------------------------OnBeforeIsNotWIP:BEGIN
+        IsHandled: Boolean;
+        //--------------------------------------------------OnBeforeIsNotWIP:END
+        begin
+        //--------------------------------------------------OnBeforeIsNotWIP:BEGIN
+        IsHandled := false;
+        OnBeforeIsNotWIP("Value Entry", Result, IsHandled);
+        if IsHandled then
+        exit(Result);
+        //--------------------------------------------------OnBeforeIsNotWIP:END
+
+        if "Value Entry"."Item Ledger Entry Type" = "Value Entry"."Item Ledger Entry Type"::Output then
+        exit(not ("Value Entry"."Entry Type" in ["Value Entry"."Entry Type"::"Direct Cost",
+        "Value Entry"."Entry Type"::Revaluation]));
+
+        exit("Value Entry"."Expected Cost");
+        end;
+
+        //--------------------------------------------------OnBeforeIsNotWIP:BEGIN
+        [IntegrationEvent(false, false)]
+        local procedure OnBeforeIsNotWIP(ValueEntry: Record "Value Entry"; var Result: Boolean; var IsHandled: Boolean)
+        begin
+        end;
+        //--------------------------------------------------OnBeforeIsNotWIP:END
+      comments: ""
+
+    expected:
+      labels: "SCM, event-request"
+      comments:
+        - author: Agent
+          body: |
+            Thank you for your event request.
+            To process this IsHandled event request, please provide the following missing information:
+
+            **Missing Requirements:**
+            1. **Alternatives Evaluated:** Which existing events or patterns did you try, and why were they insufficient for your scenario?
+            2. **Justification for IsHandled:** Why is a standard event, redesign, or contribution not feasible? Please provide specific technical reasons why bypassing the standard logic is essential.
+            3. **Performance Considerations:** What is the expected execution frequency of this event? Please assess the potential performance impact.
+            4. **Data Sensitivity Review:** Confirm whether this event exposes any sensitive data, or provide rationale if exposure is necessary.
+            5. **Multi-Extension Interaction:** What are the risks if multiple extensions subscribe to this event? How will conflicts be mitigated?
+
+            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
+            Please update the issue with these details, and we'll automatically re-analyze.
+  - instance_id: microsoft__ALAppExtensions-29444
+    input:
+      title: "[Event Request] Bank Acc. Reconciliation Line (274) & Bank Acc. Reconciliation (273)"
+      description: |
+        Why do you need this change?
+        This is important for us to implement a business scenario
+
+        Describe the request
+        Hello!
+        We would like you to add the below event requests:
+
+        (a) At table Bank Acc. Reconciliation Line (274), the OnBeforeOnDelete event as per below sample
+
+        trigger OnDelete()
+        begin
+        OnBeforeOnDelete(Rec, IsHandled);
+        if IsHandled then
+        exit;
+        RemoveApplication();
+        ClearDataExchEntries();
+        RemoveAppliedPaymentEntries();
+        DeletePaymentMatchingDetails();
+        UpdateParentLineStatementAmount();
+        if Find() then;
+        end;
+
+        (b) At Bank Acc. Reconciliation (273), an event at the OnValidate trigger of field "Statement Ending Balanc
+
+        field(3; "Statement Ending Balance"; Decimal)
+        {
+            AutoFormatExpression = GetCurrencyCode();
+            AutoFormatType = 2;
+            Caption = 'Statement Ending Balance';
+
+            **trigger OnValidate()
+              begin
+                OnBeforeValidateType(Rec);
+          end;**
+        }
+      comments: ""
+
+    expected:
+      labels: "missing-info"
+      comments:
+        - author: Agent
+          body: |
+            Thank you for your extensibility request. To process this issue, we need additional information:
+
+            Missing: Meaningful Business/Technical Justification
+            The current justification ("This is important for us to implement a business scenario") is too generic. Please provide specific details about:
+            What functionality are you trying to implement? (e.g., "validate custom payment rules", "track changes to reconciliation data", "integrate with external system")
+            What is the current technical limitation? (e.g., "cannot intercept the delete operation", "need to validate before balance updates")
+            What specific business scenario or workflow requires these events? (e.g., "compliance requirement to audit all deletions", "custom validation logic for statement balances")
+            Please update the issue description with this information. The issue will be automatically re-analyzed once updated.
+            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
+  - instance_id: microsoft__ALAppExtensions-29444_02
+    input:
+      title: "[Event Request] Bank Acc. Reconciliation Line (274) & Bank Acc. Reconciliation (273)"
+      description: |
+        Why do you need this change?
+        This is important for us to implement a business scenario
+
+        Describe the request
+        Hello!
+        We would like you to add the below event requests:
+
+        (a) At table Bank Acc. Reconciliation Line (274), the OnBeforeOnDelete event as per below sample
+
+        trigger OnDelete()
+        begin
+        OnBeforeOnDelete(Rec, IsHandled);
+        if IsHandled then
+        exit;
+        RemoveApplication();
+        ClearDataExchEntries();
+        RemoveAppliedPaymentEntries();
+        DeletePaymentMatchingDetails();
+        UpdateParentLineStatementAmount();
+        if Find() then;
+        end;
+
+        (b) At Bank Acc. Reconciliation (273), an event at the OnValidate trigger of field "Statement Ending Balanc
+
+        field(3; "Statement Ending Balance"; Decimal)
+        {
+            AutoFormatExpression = GetCurrencyCode();
+            AutoFormatType = 2;
+            Caption = 'Statement Ending Balance';
+
+            **trigger OnValidate()
+              begin
+                OnBeforeValidateType(Rec);
+          end;**
+        }
+      comments:
+        - author: Agent
+          body: |
+            Thank you for your extensibility request. To process this issue, we need additional information:
+
+            Missing: Meaningful Business/Technical Justification
+            The current justification ("This is important for us to implement a business scenario") is too generic. Please provide specific details about:
+            What functionality are you trying to implement? (e.g., "validate custom payment rules", "track changes to reconciliation data", "integrate with external system")
+            What is the current technical limitation? (e.g., "cannot intercept the delete operation", "need to validate before balance updates")
+            What specific business scenario or workflow requires these events? (e.g., "compliance requirement to audit all deletions", "custom validation logic for statement balances")
+            Please update the issue description with this information. The issue will be automatically re-analyzed once updated.
+            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
+        - author: Author
+          body: |
+            As we are implementing integration with additional system, we would like to implement custom logic which will allow us to define custom rules as existing ones are not enough
+
+    expected:
+      labels: "missing-info"
+      comments:
+        - author: Agent
+          body: |
+            Thank you for providing additional context. To process this IsHandled event request, please provide the following missing information:
+            Missing Requirements for IsHandled Event (Request a):
+            Alternatives Evaluated: Which existing events or patterns did you try, and why were they insufficient for your scenario?
+            Justification for IsHandled: Why is a standard event, redesign, or contribution not feasible? Please provide specific technical reasons why bypassing the standard delete logic is essential for your integration scenario.
+            Performance Considerations: What is the expected execution frequency of this event? Please assess the potential performance impact.
+            Data Sensitivity Review: Confirm whether this event exposes any sensitive data, or provide rationale if exposure is necessary.
+            Multi-Extension Interaction: What are the risks if multiple extensions subscribe to this event? How will conflicts be mitigated?
+            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
+            Please update the issue with these details, and we'll automatically re-analyze.

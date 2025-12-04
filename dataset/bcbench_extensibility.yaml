@@ -1,725 +1,796 @@
 entries:
-  - instance_id: microsoft__ALAppExtensions-29403
+  - instance_id: issue-29447
     input:
-      title: "[Event Request] Table 5050 Contact - OnBeforeCreateEmployeeLink"
+      title: "[Event Request] Codeunit 5880 \"Phys. Invt. Order-Finish\""
       description: |
         ### Why do you need this change?
-        In 4PS Construct we need to be able to add checks before creating the employee link.
+
+        Hi,
+        i need an event in the Codeunit 5880 "Phys. Invt. Order-Finish" in the procedure "CreateOrderTrackingBufferLines" to modify the TempInvtOrderTrackingBuffer record.
 
         ### Describe the request
 
-        Dear ALAppExtensions team,
-        On behalf of 4PS I would like to request integration event 'OnBeforeCreateEmployeeLink' to be added to procedure 'CreateEmployeeLink' in table 5050 Contact.
+        Add a new event in the procedure "CreateOrderTrackingBufferLines", before modifying the record TempInvtOrderTrackingBuffer.
 
-        [Scope('OnPrem')]
-        procedure CreateEmployeeLink()
-        var
-            ContBusRel: Record "Contact Business Relation";
-        begin
-            OnBeforeCreateEmployeeLink(Rec); // new
-            CheckContactType(Type::Person);
-            CheckIfPrivacyBlockedGeneric();
+            procedure CreateOrderTrackingBufferLines(DocNo: Code[20]; LineNo: Integer)
+            var
+                ExpInvtOrderTracking: Record "Exp. Invt. Order Tracking";
+                ItemTrackingSetup: Record "Item Tracking Setup";
+            begin
+                PhysInvtRecordLine.Reset();
+                PhysInvtRecordLine.SetCurrentKey("Order No.", "Order Line No.");
+                PhysInvtRecordLine.SetRange("Order No.", DocNo);
+                PhysInvtRecordLine.SetRange("Order Line No.", LineNo);
+                PhysInvtRecordLine.SetFilter("Quantity (Base)", '<>%1', 0);
+                if PhysInvtRecordLine.Find('-') then
+                    repeat
+                        ItemTrackingSetup."Serial No." := PhysInvtRecordLine."Serial No.";
+                        ItemTrackingSetup."Lot No." := PhysInvtRecordLine."Lot No.";
+                        ItemTrackingSetup."Package No." := PhysInvtRecordLine."Package No.";
+                        UpdateBufferRecordedQty(ItemTrackingSetup, PhysInvtRecordLine."Quantity (Base)", LineNo);
+                        OnCreateOrderTrackingBufferLinesFromPhysInvtRecordLine(TempInvtOrderTrackingBuffer, PhysInvtRecordLine);
+                    until PhysInvtRecordLine.Next() = 0;
 
-            MarketingSetup.GetRecordOnce();
-            MarketingSetup.TestField("Bus. Rel. Code for Employees");
-            CreateLink(Page::"Employee Link", MarketingSetup."Bus. Rel. Code for Employees", ContBusRel."Link to Table"::Employee);
-        end;
+                ExpInvtOrderTracking.Reset();
+                ExpInvtOrderTracking.SetRange("Order No", DocNo);
+                ExpInvtOrderTracking.SetRange("Order Line No.", LineNo);
+                if ExpInvtOrderTracking.Find('-') then
+                    repeat
+                        ItemTrackingSetup."Serial No." := ExpInvtOrderTracking."Serial No.";
+                        ItemTrackingSetup."Lot No." := ExpInvtOrderTracking."Lot No.";
+                        ItemTrackingSetup."Package No." := ExpInvtOrderTracking."Package No.";
+                        UpdateBufferExpectedQty(ItemTrackingSetup, ExpInvtOrderTracking."Quantity (Base)", LineNo);
+                        OnCreateOrderTrackingBufferLinesFromExpInvtOrderTracking(TempInvtOrderTrackingBuffer, ExpInvtOrderTracking);
+                    until ExpInvtOrderTracking.Next() = 0;
+
+                TempInvtOrderTrackingBuffer.Reset();
+                if TempInvtOrderTrackingBuffer.Find('-') then
+                    repeat
+                        TempInvtOrderTrackingBuffer."Qty. To Transfer" :=
+                          TempInvtOrderTrackingBuffer."Qty. Recorded (Base)" - TempInvtOrderTrackingBuffer."Qty. Expected (Base)";
+                        TempInvtOrderTrackingBuffer."Outstanding Quantity" := TempInvtOrderTrackingBuffer."Qty. To Transfer";
+                        TempInvtOrderTrackingBuffer.Open := TempInvtOrderTrackingBuffer."Outstanding Quantity" <> 0;
+
+                        // Start Event
+                           
+                          OnCreateOrderTrackingBufferLinesOnBeforeModifyTempInvtOrderTracking(TempInvtOrderTrackingBuffer, DocNo, LineNo);                
+
+                       // End Event
+
+                        TempInvtOrderTrackingBuffer.Modify();
+                    until TempInvtOrderTrackingBuffer.Next() = 0;
+            end;
+
+        **New Event**
+        ```
         [IntegrationEvent(false, false)]
-        local procedure OnBeforeCreateEmployeeLink(var Contact: Record Contact)
-        begin
-            //new
-        end;
+            local procedure OnCreateOrderTrackingBufferLinesOnBeforeModifyTempInvtOrderTracking(var TempInvtOrderTracking: Record "Invt. Order Tracking" temporary; DocNo: Code[20]; LineNo: Integer)
+            begin
+            end;
+        ```
+
       comments: ""
 
     expected:
       labels: "SCM, event-request"
-      comments: ""
-  - instance_id: microsoft__ALAppExtensions-29426
-    input:
-      title: '[TEST][Event Request] Report 31004 "Adjust Exchange Rates CZL".Vendor.OnAfterGetRecord'
-      description: |
-        ### Why do you need this change?
-
-        Please add new events that allows to us create for CZ legislation option "Exclude Advance Payment" from currency adjust.
-
-        ### Describe the request
-
-        dataitem(Vendor; Vendor)
-          {
-            DataItemTableView = sorting("No.");
-            RequestFilterFields = "No.";
-
-            trigger OnAfterGetRecord()
-            var
-          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-            IsHandled: Boolean;
-            //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-            begin
-              VendNo := VendNo + 1;
-              WindowDialog.Update(3, Round(VendNo / VendNoTotal * 10000, 1));
-
-              TempVendorLedgerEntry.DeleteAll();
-
-              Currency.CopyFilter(Code, VendorLedgerEntry."Currency Code");
-              VendorLedgerEntry.FilterGroup(2);
-              VendorLedgerEntry.SetFilter("Currency Code", '<>%1', '');
-              VendorLedgerEntry.FilterGroup(0);
-
-              DetailedVendorLedgEntry.Reset();
-              DetailedVendorLedgEntry.SetCurrentKey("Vendor No.", "Posting Date", "Entry Type");
-              DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
-              DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
-              if DetailedVendorLedgEntry.FindSet() then
-                  repeat
-                        VendorLedgerEntry."Entry No." := DetailedVendorLedgEntry."Vendor Ledger Entry No.";
-                        if VendorLedgerEntry.Find('=') then
-                          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-                        begin
-                        IsHandled := false;
-                          OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(AdjustExchangeRates, DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry, StartDate, EndDate, IsHandled);
-                          if not IsHandled then
-                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-                                    if (VendorLedgerEntry."Posting Date" >= StartDate) and
-                                      (VendorLedgerEntry."Posting Date" <= EndDate)
-                                    then begin
-                                        TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
-                                        if not TempVendorLedgerEntry.Insert() then
-                                            TempVendorLedgerEntry.Init();
-                                    end;
-                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-                            end;
-                      //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-                      until DetailedVendorLedgEntry.Next() = 0;
-
-                        VendorLedgerEntry.SetCurrentKey("Vendor No.", Open);
-                        VendorLedgerEntry.SetRange("Vendor No.", "No.");
-                        VendorLedgerEntry.SetRange(Open, true);
-                        VendorLedgerEntry.SetRange("Posting Date", 0D, EndDate);
-                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
-                        OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(AdjustExchangeRates, VendorLedgerEntry);
-                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:END
-                        if VendorLedgerEntry.FindSet() then
-                            repeat
-                                TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
-                                if not TempVendorLedgerEntry.Insert() then
-                                    TempVendorLedgerEntry.Init();
-                            until VendorLedgerEntry.Next() = 0;
-                      VendorLedgerEntry.Reset();
-
-                        OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust(TempVendorLedgerEntry);
-                    end;
-                }
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-            [IntegrationEvent(false, false)]
-            local procedure OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Vendor Ledger Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; EndDate: Date; StartDate: Date; var IsHandled: Boolean)
-            begin
-            end;
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
-            [IntegrationEvent(false, false)]
-            local procedure OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; VendorLedgerEntry: Record "Vendor Ledger Entry")
-            begin
-            end;
-            //--
-      comments: ""
-
-    expected:
-      labels: ""
-      comments:
-        - author: Agent
-          body: |
-            Hi @AleksandricMarko,
-
-            Thanks for submitting the issue. To help us address it efficiently, could you please update it to include the minimum required details?
-
-            📚 [Extensibility Contribution Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility)
-
-            **Missing/Incorrect Information:**
-
-            - **Invocation Example**: How the event will be raised in your code, with a sample subscriber showing intended use
-            - **Alternatives Evaluated**: Which existing events, patterns, or extensibility points were tried and why they weren't sufficient
-            - **Justification for IsHandled**: Why a standard (non-IsHandled) event, redesign, or contribution isn't feasible
-            - **Performance Considerations**: Expected frequency of execution and any potential impact (loops, large datasets, locking, external calls)
-            - **Data Sensitivity Review**: Confirmation that the event doesn't expose sensitive or security-relevant data, or rationale if it must
-            - **Multi-Extension Interaction**: Risks if multiple extensions subscribe and explanation of how conflicts or ordering are mitigated
-
-            Let us know once it's updated — we'll be happy to take a closer look.
-  - instance_id: microsoft__ALAppExtensions-29426_02
-    input:
-      title: '[TEST][Event Request] Report 31004 "Adjust Exchange Rates CZL".Vendor.OnAfterGetRecord'
-      description: |
-        ### Why do you need this change?
-
-        Please add new events that allows to us create for CZ legislation option "Exclude Advance Payment" from currency adjust.
-
-        ### Describe the request
-
-        dataitem(Vendor; Vendor)
-          {
-            DataItemTableView = sorting("No.");
-            RequestFilterFields = "No.";
-
-            trigger OnAfterGetRecord()
-            var
-          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-            IsHandled: Boolean;
-            //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-            begin
-              VendNo := VendNo + 1;
-              WindowDialog.Update(3, Round(VendNo / VendNoTotal * 10000, 1));
-
-              TempVendorLedgerEntry.DeleteAll();
-
-              Currency.CopyFilter(Code, VendorLedgerEntry."Currency Code");
-              VendorLedgerEntry.FilterGroup(2);
-              VendorLedgerEntry.SetFilter("Currency Code", '<>%1', '');
-              VendorLedgerEntry.FilterGroup(0);
-
-              DetailedVendorLedgEntry.Reset();
-              DetailedVendorLedgEntry.SetCurrentKey("Vendor No.", "Posting Date", "Entry Type");
-              DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
-              DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
-              if DetailedVendorLedgEntry.FindSet() then
-                  repeat
-                        VendorLedgerEntry."Entry No." := DetailedVendorLedgEntry."Vendor Ledger Entry No.";
-                        if VendorLedgerEntry.Find('=') then
-                          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-                        begin
-                        IsHandled := false;
-                          OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(AdjustExchangeRates, DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry, StartDate, EndDate, IsHandled);
-                          if not IsHandled then
-                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-                                    if (VendorLedgerEntry."Posting Date" >= StartDate) and
-                                      (VendorLedgerEntry."Posting Date" <= EndDate)
-                                    then begin
-                                        TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
-                                        if not TempVendorLedgerEntry.Insert() then
-                                            TempVendorLedgerEntry.Init();
-                                    end;
-                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-                            end;
-                      //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-                      until DetailedVendorLedgEntry.Next() = 0;
-
-                        VendorLedgerEntry.SetCurrentKey("Vendor No.", Open);
-                        VendorLedgerEntry.SetRange("Vendor No.", "No.");
-                        VendorLedgerEntry.SetRange(Open, true);
-                        VendorLedgerEntry.SetRange("Posting Date", 0D, EndDate);
-                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
-                        OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(AdjustExchangeRates, VendorLedgerEntry);
-                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:END
-                        if VendorLedgerEntry.FindSet() then
-                            repeat
-                                TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
-                                if not TempVendorLedgerEntry.Insert() then
-                                    TempVendorLedgerEntry.Init();
-                            until VendorLedgerEntry.Next() = 0;
-                      VendorLedgerEntry.Reset();
-
-                        OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust(TempVendorLedgerEntry);
-                    end;
-                }
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-            [IntegrationEvent(false, false)]
-            local procedure OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Vendor Ledger Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; EndDate: Date; StartDate: Date; var IsHandled: Boolean)
-            begin
-            end;
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
-            [IntegrationEvent(false, false)]
-            local procedure OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; VendorLedgerEntry: Record "Vendor Ledger Entry")
-            begin
-            end;
-            //--
-      comments:
-        - author: Agent
-          body: |
-            Hi @AleksandricMarko,
-
-            Thanks for submitting the issue. To help us address it efficiently, could you please update it to include the minimum required details?
-
-            📚 [Extensibility Contribution Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility)
-
-            **Missing/Incorrect Information:**
-
-            - **Invocation Example**: How the event will be raised in your code, with a sample subscriber showing intended use
-            - **Alternatives Evaluated**: Which existing events, patterns, or extensibility points were tried and why they weren't sufficient
-            - **Justification for IsHandled**: Why a standard (non-IsHandled) event, redesign, or contribution isn't feasible
-            - **Performance Considerations**: Expected frequency of execution and any potential impact (loops, large datasets, locking, external calls)
-            - **Data Sensitivity Review**: Confirmation that the event doesn't expose sensitive or security-relevant data, or rationale if it must
-            - **Multi-Extension Interaction**: Risks if multiple extensions subscribe and explanation of how conflicts or ordering are mitigated
-
-            Let us know once it's updated — we'll be happy to take a closer look.
-
-        - author: Partner
-          body: |
-            Hello,
-            please check bellow
-            codeunit 50100 "CZL Advance Payment Excl."
-            {
-                [EventSubscriber(ObjectType::Report, Report::"Adjust Exchange Rates CZL", 'OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry', '', false, false)]
-                local procedure ExcludeAdvancePaymentsFromAdjustment(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Detailed Vendor Ledg. Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; StartDate: Date; EndDate: Date; var IsHandled: Boolean)
-                var
-                    VendorLedgerEntryLocal: Record "Vendor Ledger Entry";
-                begin
-                    // Exclude advance payments from currency adjustment for CZ legislation
-                    VendorLedgerEntryLocal.Get(VendorLedgerEntry."Entry No.");
-                    if VendorLedgerEntryLocal."Prepayment" then begin
-                        IsHandled := true; // Skip this entry from adjustment
-                        exit;
-                    end;
-                end;
-            }
-
-            Alternatives Evaluated
-            We evaluated the following alternatives:
-
-            Existing OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust event: This event fires after all entries are already collected in the temp table, making it too late to exclude specific entries before they're processed.
-            Modifying the report directly: Not feasible as we need to maintain compatibility with base application updates and cannot modify Microsoft's localization code.
-            Post-processing with another report: Would require reversing adjustments, creating additional G/L entries and complexity, violating clean accounting practices.
-            Custom filtering via request page: The standard filter options don't provide field-level filtering for prepayment/advance payment flags.
-            None of these approaches allow us to conditionally exclude specific ledger entries during the collection phase based on CZ-specific business rules.
-
-            Justification for IsHandled
-            IsHandled is necessary because:
-
-            Conditional exclusion logic: We need to prevent specific vendor ledger entries (advance payments) from being added to the temporary table based on runtime evaluation. A standard event would still process all entries.
-            Legal compliance: CZ legislation requires advance payments to be excluded from currency adjustments. IsHandled provides the control mechanism to enforce this requirement.
-            Cannot contribute to base code: This is CZ-specific legislation that shouldn't be in the base localization report. The flexibility to stop processing per entry is essential.
-            Standard event insufficient: Without IsHandled, the entry would still be added to TempVendorLedgerEntry even after our subscriber runs, defeating the purpose.
-
-            Performance Considerations
-            Execution frequency: This report typically runs monthly or quarterly during period-end closing for exchange rate adjustments. Not a high-frequency operation.
-            Performance impact: Minimal - the event fires once per vendor ledger entry during the loop (typically 100-1000 entries per vendor). Our subscriber performs a single table read to check the prepayment flag.
-            No loops or external calls: The subscriber code is lightweight - just checking a boolean field value and setting IsHandled.
-            No locking concerns: Read-only operation during report execution.
-
-            Data Sensitivity Review
-            No sensitive data exposure: The event parameters include standard vendor ledger entry data (entry numbers, dates) that subscribers already have access to through normal table permissions.
-            No security concerns: The report already processes this data; the event doesn't expose any additional sensitive information.
-            Existing permission model applies: Only users with permissions to run the "Adjust Exchange Rates CZL" report and read vendor ledger entries can utilize this event.
-
-            Multi-Extension Interaction
-            Low conflict risk: The IsHandled pattern naturally handles multiple subscribers:
-            First subscriber to set IsHandled := true prevents the entry from being processed
-            Subsequent subscribers can check if IsHandled is already true before executing their logic
-            Expected usage: This is a CZ localization-specific scenario; unlikely that multiple extensions would need to exclude the same entries
-
-        - author: Agent
-          body: |
-            Hello @AleksandricMarko
-            Would it be acceptable for you to have OnAfterGetRecordVendorOnAfterFilterDetailedVendorLedgEntry event instead adding it in the loop?
-
-        - author: Partner
-          body: |
-            It is a bit more coding for us, but it should work
-
-    expected:
-      labels: "Finance, event-request"
-      comments: ""
-  - instance_id: microsoft__ALAppExtensions-29426_03
-    input:
-      title: '[TEST][Event Request] Report 31004 "Adjust Exchange Rates CZL".Vendor.OnAfterGetRecord'
-      description: |
-        ### Why do you need this change?
-
-        Please add new events that allows to us create for CZ legislation option "Exclude Advance Payment" from currency adjust.
-
-        ### Describe the request
-
-        dataitem(Vendor; Vendor)
-          {
-            DataItemTableView = sorting("No.");
-            RequestFilterFields = "No.";
-
-            trigger OnAfterGetRecord()
-            var
-          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-            IsHandled: Boolean;
-            //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-            begin
-              VendNo := VendNo + 1;
-              WindowDialog.Update(3, Round(VendNo / VendNoTotal * 10000, 1));
-
-              TempVendorLedgerEntry.DeleteAll();
-
-              Currency.CopyFilter(Code, VendorLedgerEntry."Currency Code");
-              VendorLedgerEntry.FilterGroup(2);
-              VendorLedgerEntry.SetFilter("Currency Code", '<>%1', '');
-              VendorLedgerEntry.FilterGroup(0);
-
-              DetailedVendorLedgEntry.Reset();
-              DetailedVendorLedgEntry.SetCurrentKey("Vendor No.", "Posting Date", "Entry Type");
-              DetailedVendorLedgEntry.SetRange("Vendor No.", "No.");
-              DetailedVendorLedgEntry.SetRange("Posting Date", CalcDate('<+1D>', EndDate), DMY2Date(31, 12, 9999));
-              if DetailedVendorLedgEntry.FindSet() then
-                  repeat
-                        VendorLedgerEntry."Entry No." := DetailedVendorLedgEntry."Vendor Ledger Entry No.";
-                        if VendorLedgerEntry.Find('=') then
-                          //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-                        begin
-                        IsHandled := false;
-                          OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(AdjustExchangeRates, DetailedVendorLedgEntry, VendorLedgerEntry, TempVendorLedgerEntry, StartDate, EndDate, IsHandled);
-                          if not IsHandled then
-                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-                                    if (VendorLedgerEntry."Posting Date" >= StartDate) and
-                                      (VendorLedgerEntry."Posting Date" <= EndDate)
-                                    then begin
-                                        TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
-                                        if not TempVendorLedgerEntry.Insert() then
-                                            TempVendorLedgerEntry.Init();
-                                    end;
-                        //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-                            end;
-                      //-------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-                      until DetailedVendorLedgEntry.Next() = 0;
-
-                        VendorLedgerEntry.SetCurrentKey("Vendor No.", Open);
-                        VendorLedgerEntry.SetRange("Vendor No.", "No.");
-                        VendorLedgerEntry.SetRange(Open, true);
-                        VendorLedgerEntry.SetRange("Posting Date", 0D, EndDate);
-                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
-                        OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(AdjustExchangeRates, VendorLedgerEntry);
-                        //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:END
-                        if VendorLedgerEntry.FindSet() then
-                            repeat
-                                TempVendorLedgerEntry."Entry No." := VendorLedgerEntry."Entry No.";
-                                if not TempVendorLedgerEntry.Insert() then
-                                    TempVendorLedgerEntry.Init();
-                            until VendorLedgerEntry.Next() = 0;
-                      VendorLedgerEntry.Reset();
-
-                        OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust(TempVendorLedgerEntry);
-                    end;
-                }
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:BEGIN
-            [IntegrationEvent(false, false)]
-            local procedure OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Vendor Ledger Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; EndDate: Date; StartDate: Date; var IsHandled: Boolean)
-            begin
-            end;
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnBeforeInitTempVendorLedgerEntry:END
-
-            //---------------------------------------------------------------OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry:BEGIN
-            [IntegrationEvent(false, false)]
-            local procedure OnAfterGetRecordVendorOnAfterSetRangeVendorLedgerEntry(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; VendorLedgerEntry: Record "Vendor Ledger Entry")
-            begin
-            end;
-            //--
-      comments:
-        - author: Agent
-          body: |
-            Hi @AleksandricMarko,
-
-            Thanks for submitting the issue. To help us address it efficiently, could you please update it to include the minimum required details?
-
-            📚 [Extensibility Contribution Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility)
-
-            **Missing/Incorrect Information:**
-
-            - **Invocation Example**: How the event will be raised in your code, with a sample subscriber showing intended use
-            - **Alternatives Evaluated**: Which existing events, patterns, or extensibility points were tried and why they weren't sufficient
-            - **Justification for IsHandled**: Why a standard (non-IsHandled) event, redesign, or contribution isn't feasible
-            - **Performance Considerations**: Expected frequency of execution and any potential impact (loops, large datasets, locking, external calls)
-            - **Data Sensitivity Review**: Confirmation that the event doesn't expose sensitive or security-relevant data, or rationale if it must
-            - **Multi-Extension Interaction**: Risks if multiple extensions subscribe and explanation of how conflicts or ordering are mitigated
-
-            Let us know once it's updated — we'll be happy to take a closer look.
-
-        - author: Partner
-          body: |
-            Hello,
-            please check bellow
-            codeunit 50100 "CZL Advance Payment Excl."
-            {
-                [EventSubscriber(ObjectType::Report, Report::"Adjust Exchange Rates CZL", 'OnAfterGetRecordVendorOnBeforeSetTempVendorLedgerEntry', '', false, false)]
-                local procedure ExcludeAdvancePaymentsFromAdjustment(var AdjustExchangeRates: Report "Adjust Exchange Rates CZL"; DetailedVendorLedgEntry: Record "Detailed Vendor Ledg. Entry"; VendorLedgerEntry: Record "Vendor Ledger Entry"; var TempVendorLedgerEntry: Record "Vendor Ledger Entry"; StartDate: Date; EndDate: Date; var IsHandled: Boolean)
-                var
-                    VendorLedgerEntryLocal: Record "Vendor Ledger Entry";
-                begin
-                    // Exclude advance payments from currency adjustment for CZ legislation
-                    VendorLedgerEntryLocal.Get(VendorLedgerEntry."Entry No.");
-                    if VendorLedgerEntryLocal."Prepayment" then begin
-                        IsHandled := true; // Skip this entry from adjustment
-                        exit;
-                    end;
-                end;
-            }
-
-            Alternatives Evaluated
-            We evaluated the following alternatives:
-
-            Existing OnVendorAfterGetRecordOnAfterFindVendLedgerEntriesToAdjust event: This event fires after all entries are already collected in the temp table, making it too late to exclude specific entries before they're processed.
-            Modifying the report directly: Not feasible as we need to maintain compatibility with base application updates and cannot modify Microsoft's localization code.
-            Post-processing with another report: Would require reversing adjustments, creating additional G/L entries and complexity, violating clean accounting practices.
-            Custom filtering via request page: The standard filter options don't provide field-level filtering for prepayment/advance payment flags.
-            None of these approaches allow us to conditionally exclude specific ledger entries during the collection phase based on CZ-specific business rules.
-
-            Justification for IsHandled
-            IsHandled is necessary because:
-
-            Conditional exclusion logic: We need to prevent specific vendor ledger entries (advance payments) from being added to the temporary table based on runtime evaluation. A standard event would still process all entries.
-            Legal compliance: CZ legislation requires advance payments to be excluded from currency adjustments. IsHandled provides the control mechanism to enforce this requirement.
-            Cannot contribute to base code: This is CZ-specific legislation that shouldn't be in the base localization report. The flexibility to stop processing per entry is essential.
-            Standard event insufficient: Without IsHandled, the entry would still be added to TempVendorLedgerEntry even after our subscriber runs, defeating the purpose.
-
-            Performance Considerations
-            Execution frequency: This report typically runs monthly or quarterly during period-end closing for exchange rate adjustments. Not a high-frequency operation.
-            Performance impact: Minimal - the event fires once per vendor ledger entry during the loop (typically 100-1000 entries per vendor). Our subscriber performs a single table read to check the prepayment flag.
-            No loops or external calls: The subscriber code is lightweight - just checking a boolean field value and setting IsHandled.
-            No locking concerns: Read-only operation during report execution.
-
-            Data Sensitivity Review
-            No sensitive data exposure: The event parameters include standard vendor ledger entry data (entry numbers, dates) that subscribers already have access to through normal table permissions.
-            No security concerns: The report already processes this data; the event doesn't expose any additional sensitive information.
-            Existing permission model applies: Only users with permissions to run the "Adjust Exchange Rates CZL" report and read vendor ledger entries can utilize this event.
-
-            Multi-Extension Interaction
-            Low conflict risk: The IsHandled pattern naturally handles multiple subscribers:
-            First subscriber to set IsHandled := true prevents the entry from being processed
-            Subsequent subscribers can check if IsHandled is already true before executing their logic
-            Expected usage: This is a CZ localization-specific scenario; unlikely that multiple extensions would need to exclude the same entries
-
-    expected:
-      labels: ""
-      comments:
-        - author: Agent
-          body: |
-            Hello @AleksandricMarko
-            Would it be acceptable for you to have OnAfterGetRecordVendorOnAfterFilterDetailedVendorLedgEntry event instead adding it in the loop?
-  - instance_id: microsoft__ALAppExtensions-29435
-    input:
-      title: '[Event Request] report 8051 "Contract Deferrals Release"'
-      description: |
-        ### Why do you need this change?
-        We would like to be able to set additional filters for Customer/Vendor Contract Deferrals.
-        Can you please implement the following Event?
-
-        ### Describe the request
-        local procedure FilterAndCountContractDeferrals()
-        begin
-          ContractDeferralIteration := 0;
-
-          GlobalCustomerContractDeferral.SetRange("Posting Date", 0D, PostUntilDate);
-          GlobalCustomerContractDeferral.SetRange("Document Posting Date", 0D, PostUntilDate);
-          GlobalCustomerContractDeferral.SetRange(Released, false);
-          GlobalVendorContractDeferral.SetRange("Posting Date", 0D, PostUntilDate);
-          GlobalVendorContractDeferral.SetRange("Document Posting Date", 0D, PostUntilDate);
-          GlobalVendorContractDeferral.SetRange(Released, false);
-          **OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(GlobalCustomerContractDeferral, GlobalVendorContractDeferral);**
-          TotalContractDeferralsCount := GlobalVendorContractDeferral.Count + GlobalCustomerContractDeferral.Count;
-        end;
-
-
-        **[IntegrationEvent(false, false)]
-        local procedure OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(var CustSubContractDeferral: Record "Cust. Sub. Contract Deferral"; var VendSubContractDeferral: Record "Vend. Sub. Contract Deferral")
-        begin
-        end;**
-
-      comments: ""
-
-    expected:
-      labels: "Finance, event-request"
-      comments:
+      comments: 
         - author: Agent
           body: |
             ✅ Analysis complete - approved for implementation
+
             **Implementation:**
-            Add the following event to the `FilterAndCountContractDeferrals` procedure in report 8051 \"Contract Deferrals Release\":
+
+            Add event publisher in procedure `CreateOrderTrackingBufferLines` before `TempInvtOrderTrackingBuffer.Modify()`:
+
             ```al
-              local procedure FilterAndCountContractDeferrals()
-              begin
-                  ContractDeferralIteration := 0;
-                  GlobalCustomerContractDeferral.SetRange(\"Posting Date\", 0D, PostUntilDate);
-                  GlobalCustomerContractDeferral.SetRange(\"Document Posting Date\", 0D, PostUntilDate);
-                  GlobalCustomerContractDeferral.SetRange(Released, false);
-                  GlobalVendorContractDeferral.SetRange(\"Posting Date\", 0D, PostUntilDate);
-                  GlobalVendorContractDeferral.SetRange(\"Document Posting Date\", 0D, PostUntilDate);
-                  GlobalVendorContractDeferral.SetRange(Released, false);
-                  OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(GlobalCustomerContractDeferral, GlobalVendorContractDeferral);
-                  TotalContractDeferralsCount := GlobalVendorContractDeferral.Count + GlobalCustomerContractDeferral.Count;
-              end;
+            TempInvtOrderTrackingBuffer.Reset();
+            if TempInvtOrderTrackingBuffer.Find('-') then
+                repeat
+                    TempInvtOrderTrackingBuffer."Qty. To Transfer" :=
+                      TempInvtOrderTrackingBuffer."Qty. Recorded (Base)" - TempInvtOrderTrackingBuffer."Qty. Expected (Base)";
+                    TempInvtOrderTrackingBuffer."Outstanding Quantity" := TempInvtOrderTrackingBuffer."Qty. To Transfer";
+                    TempInvtOrderTrackingBuffer.Open := TempInvtOrderTrackingBuffer."Outstanding Quantity" <> 0;
+                    OnCreateOrderTrackingBufferLinesOnBeforeModifyTempInvtOrderTracking(TempInvtOrderTrackingBuffer, DocNo, LineNo);
+                    TempInvtOrderTrackingBuffer.Modify();
+                until TempInvtOrderTrackingBuffer.Next() = 0;
+            ```
+
+            Add event publisher procedure at the end of the codeunit (before the closing brace):
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnCreateOrderTrackingBufferLinesOnBeforeModifyTempInvtOrderTracking(var TempInvtOrderTracking: Record "Invt. Order Tracking" temporary; DocNo: Code[20]; LineNo: Integer)
+            begin
+            end;
+            ```
+
+  - instance_id: issue-29442
+    input:
+      title: "[W1][Page][176][Standard Purchase Code Subform] Make procedure UpdateTypeText() not local"
+      description: |
+        ### Why do you need this change?
+
+        Procedure UpdateTypeText() is in local scope and it updates field variable TypeAsText
+
+        ### Describe the request
+
+        Remove "local" scope from procedure UpdateTypeText() in page 176 "Standard Purchase Code Subform";        
+
+      comments: ""
+
+    expected:
+      labels: "SCM, request-for-external"
+      comments: 
+        - author: Agent
+          body: |
+            ✅ Analysis complete - approved for implementation
+
+            **Implementation:**
+
+            Remove `local` scope from procedure `UpdateTypeText()` in Page 176 "Standard Purchase Code Subform":
+
+            ```al
+            procedure UpdateTypeText()
+            var
+                RecRef: RecordRef;
+            begin
+                RecRef.GetTable(Rec);
+                TypeAsText := TempOptionLookupBuffer.FormatOption(RecRef.Field(Rec.FieldNo(Type)));
+            end;
+            ```
+
+  - instance_id: issue-29441
+    input:
+      title: "[W1][Page][289][Recurring Job Jnl.] Move variables to protected variables"
+      description: |
+        ### Why do you need this change?
+
+        Variables used as field values need to be accessable so they could be updated after changes from new fields
+
+        ### Describe the request
+
+        Please move variables JobDescription and AccName to protected variables
+        Internal work item: [AB#614042](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/614042)
+
+      comments: ""
+
+    expected:
+      labels: "SCM, request-for-external"
+      comments: 
+        - author: Agent
+          body: |
+            ✅ Analysis complete - approved for implementation
+
+            **Implementation:**
+
+            Move `JobDescription` and `AccName` variables from `var` to `protected var` section in Page 289 "Recurring Job Jnl.":
+
+            ```al
+            var
+                JobJnlManagement: Codeunit JobJnlManagement;
+                ReportPrint: Codeunit "Test Report-Print";
+                JobJnlReconcile: Page "Job Journal Reconcile";
+                CurrentJnlBatchName: Code[10];
+
+            protected var
+                JobDescription: Text[100];
+                AccName: Text[100];
+                ShortcutDimCode: array[8] of Code[20];
+            ```
+
+  - instance_id: issue-29443
+    input:
+      title: "[W1][Page][171][Standard Sales Code Subform] Make procedure UpdateTypeText() not local"
+      description: |
+        ### Why do you need this change?
+
+        Procedure UpdateTypeText() is in local scope and it updates field variable TypeAsText
+
+        ### Describe the request
+
+        Remove "local" scope from procedure UpdateTypeText() in page 171 "Standard Sales Code Subform"
+        Internal work item: [AB#614045](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/614045)
+
+      comments: ""
+
+    expected:
+      labels: "SCM, request-for-external"
+      comments: 
+        - author: Agent
+          body: |
+            ✅ Analysis complete - approved for implementation
+
+            **Implementation:**
+
+            Remove `local` scope from procedure `UpdateTypeText()` in Page 171 "Standard Sales Code Subform":
+
+            ```al
+            procedure UpdateTypeText()
+            var
+                RecRef: RecordRef;
+            begin
+                RecRef.GetTable(Rec);
+                TypeAsText := TempOptionLookupBuffer.FormatOption(RecRef.Field(Rec.FieldNo(Type)));
+            end;
+            ```
+
+  - instance_id: issue-29449
+    input:
+      title: "[Event Request] Report 10034 \"Create Transmission IRIS\", codeunit 10056 \"Process Transmission IRIS\", codeunit 10033 \"Generate Xml File IRIS\""
+      description: |
+        ### Why do you need this change?
+
+        We currently have an AppSource app that allows tracking of different legal entities in a single Business Central company using Dimension Values to distinguish between the legal entities.  For many of our US clients, each legal entity may correspond to a different tax group and therefore require separate tax generation and submission of the IRS 1099 reports based on the dimension values.  We already fully integrate with the 1099 functionality in the Business Central US base app, however with the introduction of the new IRS 1099 module we require a few additional integration events in this new module to allow our solution to continue to function in this area for our customers.
+         
+        We require 4 integration events as follows:
+        1. report 10034 "Create Transmission IRIS" inside trigger OnPostReport()
+            This will be used to set an additional range against the validation which currently only allows one transmission per IRS Reporting Period.  We would add an additional range here based on our dimension values as there may be up to one transmission per IRS Reporting Period and Dimension Value.
+        2. codeunit 10056 "Process Transmission IRIS" - procedure AddReleasedFormDocsToTransmission()
+            This will be used to filter the documents included in the transmission that is created.  We will filter the documents based on the Dimension Value assigned to each document against the dimension value of the transmission as only records belonging to appropriate Dimension Value should be included in the transmission for that Dimension Value.
+        3. Inside codeunit 10033 "Generate Xml File IRIS";
+           a. local procedure AddIssuerDetails() - This will be used to update the Company Address Information in the transmission XML to be accurate for the Dimension Value submitting the tax report, as the Company Address Information is stored by dimension value with our solution.
+           b. local procedure AddContactPersonInformationGrp() - Same as point 3a, this will be used to update the Company Address Information in another place where it is used (i.e. contact person).
+
+        ### Describe the request
+
+        1) report 10034 "Create Transmission IRIS" inside trigger OnPostReport()
+
+            trigger OnPostReport()
+               var ....
+                begin
+                    ....
+                    ....
+                    Transmission.SetRange("Period No.", PeriodNo);
+                    OnBeforeTransmissionFindFirst(Transmission);
+                    ....
+                    ....
+                end;
 
               [IntegrationEvent(false, false)]
-              local procedure OnFilterAndCountContractDeferralsOnAfterFilterGlobalContractDeferral(var CustSubContractDeferral: Record \"Cust. Sub. Contract Deferral\"; var VendSubContractDeferral: Record \"Vend. Sub. Contract Deferral\")
+              procedure OnBeforeTransmissionFindFirst(var Transmission: Record "Transmission IRIS")
               begin
               end;
-            ```
-  - instance_id: microsoft__ALAppExtensions-29439
+              
+              
+         2) codeunit 10056 "Process Transmission IRIS" - 
+
+             procedure AddReleasedFormDocsToTransmission(var Transmission: Record "Transmission IRIS") DocsCount: Integer
+              var
+                IRS1099FormDocHeader: Record "IRS 1099 Form Doc. Header";
+              begin
+                IRS1099FormDocHeader.SetRange(Status, IRS1099FormDocHeader.Status::Released);
+                IRS1099FormDocHeader.SetRange("Period No.", Transmission."Period No.");
+                OnBeforeIRS1099FormDocHeaderFindSet(IRS1099FormDocHeader,Transmission);
+                ....
+                ....
+              end;
+              
+              [IntegrationEvent(false, false)]
+              procedure OnBeforeIRS1099FormDocHeaderFindSet(var IRS1099FormDocHeader: Record "IRS 1099 Form Doc. Header" ;
+                                                            Transmission: Record "Transmission IRIS")
+              begin
+              end;
+              
+          3) Inside codeunit 10033 "Generate Xml File IRIS" but as It is marked internal so have to create new codeunit to add new events and use it inside this codeunit.
+            
+            a) local procedure AddIssuerDetails()
+                var
+                    ....
+                    "Generate Xml File IRIS Events" : Codeunit "Generate Xml File IRIS Events";
+                begin
+                    ....
+                    CompanyInformation.Get();
+                    IRSFormsSetup.Get();
+                    "Generate Xml File IRIS Events".OnAfterGetCompanyInfoAndIRSFormSetup(CompanyInformation,IRSFormsSetup);
+                    .....
+                    .....
+                end
+
+
+                
+            b)local procedure AddContactPersonInformationGrp()
+              var
+                ....
+                "Generate Xml File IRIS Events":Codeunit "Generate Xml File IRIS Events";
+              begin
+                ....
+                CompanyInformation.Get();
+                "Generate Xml File IRIS Events".OnAfterGetCompanyInformationSetup(CompanyInformation);
+                .....
+            end;
+            
+                
+            Codeunit XXXX "Generate Xml File IRIS Events"
+                {
+                    procedure OnAfterGetCompanyInfoAndIRSFormSetup(var CompanyInformation: Record "Company Information"; 
+                                                                       var IRSFormsSetup: Record "IRS Forms Setup";)
+                    begin
+                        OnGetCompanyInfoAndIRSFormSetup(CompanyInformation,IRSFormsSetup);
+                    end;
+                    
+                    procedure OnAfterGetCompanyInformationSetup(var CompanyInformation: Record "Company Information")
+                    begin
+                        OnGetCompanyInformationSetup(CompanyInformation);
+                    end;
+                    
+                    
+                    [IntegrationEvent(false, false)]
+                    procedure OnGetCompanyInfoAndIRSFormSetup(var CompanyInformation: Record "Company Information"; 
+                                                                       var IRSFormsSetup: Record "IRS Forms Setup";)
+                    begin
+                    end;
+                    
+                   [IntegrationEvent(false, false)]
+                   procedure OnGetCompanyInformationSetup(var CompanyInformation: Record "Company Information")
+                   begin
+                   end;
+                  }
+
+      comments: ""
+
+    expected:
+      labels: "agent-not-processable"
+      comments: []
+
+  - instance_id: issue-29453-step1
     input:
-      title: '[Event Request] Report 5802 "Inventory Valuation - WIP".IsNotWIP'
+      title: "[Event Request] page 7001 \"Price List Lines\" - OnAfterUpdateColumnVisibility"
       description: |
-        Why do you need this change?
-        From our point of you view "Entry Type"::"Rounding" should IsNotWIP for mentioned value same as for "Value Entry"."Entry Type"::"Direct Cost". Event allows to us own logic.
+        ### Why do you need this change?
 
-        Describe the request
-        local procedure IsNotWIP(): Boolean
-        var
-        //--------------------------------------------------OnBeforeIsNotWIP:BEGIN
-        IsHandled: Boolean;
-        //--------------------------------------------------OnBeforeIsNotWIP:END
-        begin
-        //--------------------------------------------------OnBeforeIsNotWIP:BEGIN
-        IsHandled := false;
-        OnBeforeIsNotWIP("Value Entry", Result, IsHandled);
-        if IsHandled then
-        exit(Result);
-        //--------------------------------------------------OnBeforeIsNotWIP:END
+        Can you change IncludeSender to true, so i can get information from the page and be able to set visibility for my own fields?
 
-        if "Value Entry"."Item Ledger Entry Type" = "Value Entry"."Item Ledger Entry Type"::Output then
-        exit(not ("Value Entry"."Entry Type" in ["Value Entry"."Entry Type"::"Direct Cost",
-        "Value Entry"."Entry Type"::Revaluation]));
+        ```
+            //[IntegrationEvent(false, false)]
+            [IntegrationEvent(true, false)]
+            local procedure OnAfterUpdateColumnVisibility(PriceListHeader: Record "Price List Header"; var SourceTypeVisible: Boolean; var JobSourceTypeVisible: Boolean)
+            begin
+            end;
+        ```
 
-        exit("Value Entry"."Expected Cost");
-        end;
+        ### Describe the request
 
-        //--------------------------------------------------OnBeforeIsNotWIP:BEGIN
-        [IntegrationEvent(false, false)]
-        local procedure OnBeforeIsNotWIP(ValueEntry: Record "Value Entry"; var Result: Boolean; var IsHandled: Boolean)
-        begin
-        end;
-        //--------------------------------------------------OnBeforeIsNotWIP:END
+        ..
+        Internal work item: [AB#615080](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/615080)
+
+      comments: ""
+
+    expected:
+      labels: "missing-info"
+      comments: 
+        - author: Agent
+          body: |
+            Thank you for your request. To process this event modification, please provide the following missing information:
+
+            **1. Complete Description:**
+            The "Describe the request" section is incomplete. Please provide:
+            - What specific problem you're trying to solve
+            - What information from the page you need to access
+            - Why the current event parameters are insufficient
+            - How you plan to use the page sender reference
+
+            **2. Detailed Justification for IncludeSender=true:**
+            Changing IncludeSender to true is a critical modification that requires careful justification. Please explain:
+            - **Why subscribers MUST have access to the page instance** - what specific page properties, methods, or state do you need to access?
+            - **Why the current event parameters (PriceListHeader, SourceTypeVisible, JobSourceTypeVisible) are insufficient** - what can't you accomplish with these?
+            - **What alternatives you evaluated** - why can't you achieve your goal by adding parameters to the event instead?
+            - **Specific use case** - describe the exact scenario where your extension needs page instance access
+
+            Please update the issue with this information so we can evaluate the request properly.
+
+  - instance_id: issue-29453-step2
+    input:
+      title: "[Event Request] page 7001 \"Price List Lines\" - OnAfterUpdateColumnVisibility"
+      description: |
+        ### Why do you need this change?
+
+        Can you change IncludeSender to true, so i can get information from the page and be able to set visibility for my own fields?
+
+        ```
+            //[IntegrationEvent(false, false)]
+            [IntegrationEvent(true, false)]
+            local procedure OnAfterUpdateColumnVisibility(PriceListHeader: Record "Price List Header"; var SourceTypeVisible: Boolean; var JobSourceTypeVisible: Boolean)
+            begin
+            end;
+        ```
+
+        ### Describe the request
+
+        ..
+        Internal work item: [AB#615080](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/615080)
+
+      comments: |
+        **Comment 1 (AleksandricMarko):**
+        Thank you for your request. To process this event modification, please provide the following missing information:
+
+        **1. Complete Description:**
+        The "Describe the request" section is incomplete. Please provide:
+        - What specific problem you're trying to solve
+        - What information from the page you need to access
+        - Why the current event parameters are insufficient
+        - How you plan to use the page sender reference
+
+        **2. Detailed Justification for IncludeSender=true:**
+        Changing IncludeSender to true is a critical modification that requires careful justification. Please explain:
+        - **Why subscribers MUST have access to the page instance** - what specific page properties, methods, or state do you need to access?
+        - **Why the current event parameters (PriceListHeader, SourceTypeVisible, JobSourceTypeVisible) are insufficient** - what can't you accomplish with these?
+        - **What alternatives you evaluated** - why can't you achieve your goal by adding parameters to the event instead?
+        - **Specific use case** - describe the exact scenario where your extension needs page instance access
+
+        Please update the issue with this information so we can evaluate the request properly.
+
+        ---
+
+        **Comment 2 (auzhhv):**
+        Hi Alexander,
+
+        **1. Complete Description:**
+        We have added custom fields that should behave simular to other fields in the same page regarding visibility. These fields have custom criterias for visibility, but the points where our visibility variables should be updated is the same as the existing fields. The event is called OnAfterUpdateColumnVisibility, but it's not possible to update visibility for other fields because of access. As we cannot add custom variables to events, we need access to find and change other events on pages. We will add procedures in the a page extension to access our visibility variables. Ex. SetField1Visibility(NewVisibility) where Field1 is the name of our field.
+
+        **2. Detailed Justification for IncludeSender=true:**
+        We must have access to the page to be able to set the our own visibility variables.
+        It makes no sense to put it other places as the name of the event applies that its the correct place to change visibility. And I have not found other places it makes sense to do the same. And this is probably the reason why this is the place base application has the same code.
+
+    expected:
+      labels: "SCM, event-request"
+      comments: 
+        - author: Agent
+          body: |
+            ✅ **Analysis complete - approved for implementation**
+
+            ---
+
+            **Implementation:**
+
+            Change `IncludeSender` from `false` to `true` on the existing `OnAfterUpdateColumnVisibility` event in Page 7001 "Price List Lines" to allow subscribers to access the page instance.
+
+            **Current code (around line 490):**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterUpdateColumnVisibility(PriceListHeader: Record "Price List Header"; var SourceTypeVisible: Boolean; var JobSourceTypeVisible: Boolean)
+            begin
+            end;
+            ```
+
+            **Proposed change:**
+
+            ```al
+            [IntegrationEvent(true, false)]
+            local procedure OnAfterUpdateColumnVisibility(PriceListHeader: Record "Price List Header"; var SourceTypeVisible: Boolean; var JobSourceTypeVisible: Boolean)
+            begin
+            end;
+            ```
+
+            ---
+
+            **File:** `PriceListLines.Page.al`
+
+  - instance_id: issue-29454
+    input:
+      title: "[Request for External] table 7001 \"Price List Line\" - CheckAmountType"
+      description: |
+        ### Why do you need this change?
+
+        Can you remove local from provedure CheckAmountType in table 7001 "Price List Line"?
+
+        ### Describe the request
+
+        I need this to avoid making duplicate code, as I need to check the same scenario.
+        Internal work item: [AB#614920](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/614920)
+
+      comments: ""
+
+    expected:
+      labels: "SCM, request-for-external"
+      comments: 
+        - author: Agent
+          body: |
+            ✅ **Analysis complete - approved for implementation**
+
+            ---
+
+            **Implementation:**
+
+            Change the `CheckAmountType` procedure from `local` to public (remove the `local` keyword) in table 7001 "Price List Line".
+
+            **Current code:**
+
+            ```al
+            local procedure CheckAmountType(FldCaption: Text; AmountType: Enum "Price Amount Type")
+            begin
+                if "Amount Type" = AmountType then
+                    Error(FieldNotAllowedForAmountTypeErr, FldCaption, FieldCaption("Amount Type"), Format("Amount Type"));
+            end;
+            ```
+
+            **Proposed change:**
+
+            ```al
+            procedure CheckAmountType(FldCaption: Text; AmountType: Enum "Price Amount Type")
+            begin
+                if "Amount Type" = AmountType then
+                    Error(FieldNotAllowedForAmountTypeErr, FldCaption, FieldCaption("Amount Type"), Format("Amount Type"));
+            end;
+            ```
+
+            ---
+
+            **File:** `PriceListLine.Table.al`
+
+  - instance_id: issue-29455
+    input:
+      title: "[Extend publisher] Codeunit 99000771 BOM Matrix Management - OnBeforeBuildMatrix"
+      description: |
+        ### Why do you need this change?
+
+        The problem occurs with the prod. bom version comparison when a production bom has another sub bom in the production bom lines. If this sub bom has multiple versions then it is possible hat the comparison shows not the components of the active certified version but of a newer one which is currently under development. In the case part of the "BuildMatrix" procedure is the following GetVersion call 
+
+        However, this does not filter for the current version or even consider the status, but only the start date, which can result in the active version not being returned.
+
+        ### Describe the request
+
+        It would be desirable if either the onbeforebuildmatrix event were adjusted and the VersionCode parameter were declared as a var parameter so that, if necessary, the active version could be set manually in this event.
+
+        or if the GetVersion function were to return the current version directly, as on the "Production BOM" page using the exixting GetBOMVersion procedure of codeunit VersionManagement VersionManagement.GetBOMVersion(Rec."No.", WorkDate(), true);
+
+        Internal work item: [AB#614921](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/614921)
+
       comments: ""
 
     expected:
       labels: "SCM, event-request"
-      comments:
+      comments: 
         - author: Agent
           body: |
-            Thank you for your event request.
-            To process this IsHandled event request, please provide the following missing information:
+            ✅ **Analysis complete - approved for implementation**
 
-            **Missing Requirements:**
-            1. **Alternatives Evaluated:** Which existing events or patterns did you try, and why were they insufficient for your scenario?
-            2. **Justification for IsHandled:** Why is a standard event, redesign, or contribution not feasible? Please provide specific technical reasons why bypassing the standard logic is essential.
-            3. **Performance Considerations:** What is the expected execution frequency of this event? Please assess the potential performance impact.
-            4. **Data Sensitivity Review:** Confirm whether this event exposes any sensitive data, or provide rationale if exposure is necessary.
-            5. **Multi-Extension Interaction:** What are the risks if multiple extensions subscribe to this event? How will conflicts be mitigated?
+            ---
 
-            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
-            Please update the issue with these details, and we'll automatically re-analyze.
-  - instance_id: microsoft__ALAppExtensions-29444
+            **Implementation:**
+
+            Extend the existing `OnBeforeBuildMatrix` event publisher in Codeunit 99000771 "BOM Matrix Management" by changing the `VersionCode` parameter to a `var` parameter, allowing subscribers to override the version code.
+
+            **Current code:**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnBeforeBuildMatrix(ProductionBOMNo: Code[20]; VersionCode: Code[20]; Level: Integer; Quantity: Decimal; var IsHandled: Boolean)
+            begin
+            end;
+            ```
+
+            **Proposed change:**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnBeforeBuildMatrix(ProductionBOMNo: Code[20]; var VersionCode: Code[20]; Level: Integer; Quantity: Decimal; var IsHandled: Boolean)
+            begin
+            end;
+            ```
+
+            ---
+
+            **File:** `BOMMatrixManagement.Codeunit.al`
+
+  - instance_id: issue-29459-step1
     input:
-      title: "[Event Request] Bank Acc. Reconciliation Line (274) & Bank Acc. Reconciliation (273)"
+      title: "[Event Request] Codeunit 5880 \"Phys. Invt. Order-Finish\""
       description: |
-        Why do you need this change?
-        This is important for us to implement a business scenario
+        ### Why do you need this change?
 
-        Describe the request
-        Hello!
-        We would like you to add the below event requests:
+        Hi,
+        i need an event in the Codeunit 5880 "Phys. Invt. Order-Finish" in the procedure "Code"() to modify the PhysInvtOrderLine record before creating the  reservation entries.
 
-        (a) At table Bank Acc. Reconciliation Line (274), the OnBeforeOnDelete event as per below sample
+        ### Describe the request
 
-        trigger OnDelete()
-        begin
-        OnBeforeOnDelete(Rec, IsHandled);
-        if IsHandled then
-        exit;
-        RemoveApplication();
-        ClearDataExchEntries();
-        RemoveAppliedPaymentEntries();
-        DeletePaymentMatchingDetails();
-        UpdateParentLineStatementAmount();
-        if Find() then;
+        Add a new event in the procedure "Code"(), before the procedure "CreateReservationEntries".
+
+        ```
+        procedure "Code"()
+        var
+            ItemTrackingSetup: Record "Item Tracking Setup";
+            IsHandled: Boolean;
+         begin
+            ...
+            if PhysInvtOrderLine."Use Item Tracking" and
+               not IsBinMandatoryNoWhseTracking(Item, PhysInvtOrderLine."Location Code")
+            then begin
+                PhysInvtOrderLine."Pos. Qty. (Base)" := 0;
+                PhysInvtOrderLine."Neg. Qty. (Base)" := 0;
+                TempInvtOrderTrackingBuffer.Reset();
+                TempInvtOrderTrackingBuffer.DeleteAll();
+                CreateOrderTrackingBufferLines(PhysInvtOrderLine."Document No.", PhysInvtOrderLine."Line No.");
+               
+                // Start Event
+                OnCodeOnBeforeCreateReservationEntriesAfterCreateOrderTrackingBufferLines(PhysInvtOrderLine);
+                // End Event
+
+                CreateReservationEntries(PhysInvtOrderLine."Document No.", PhysInvtOrderLine."Line No.", true, 0);
+            end else
+            ...
         end;
+        ```
 
-        (b) At Bank Acc. Reconciliation (273), an event at the OnValidate trigger of field "Statement Ending Balanc
+        Add the event publisher at the end of the codeunit:
 
-        field(3; "Statement Ending Balance"; Decimal)
-        {
-            AutoFormatExpression = GetCurrencyCode();
-            AutoFormatType = 2;
-            Caption = 'Statement Ending Balance';
+        ```
+        [IntegrationEvent(false, false)]
+        local procedure OnCodeOnBeforeCreateReservationEntriesAfterCreateOrderTrackingBufferLines(var PhysInvtOrderLine: Record "Phys. Invt. Order Line")
+        begin
+        end;
+        ```
 
-            **trigger OnValidate()
-              begin
-                OnBeforeValidateType(Rec);
-          end;**
-        }
+        Internal work item: [AB#614919](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/614919)
+
       comments: ""
 
     expected:
       labels: "missing-info"
-      comments:
+      comments: 
         - author: Agent
           body: |
-            Thank you for your extensibility request. To process this issue, we need additional information:
+            ⚠️ **Clarification needed**
 
-            Missing: Meaningful Business/Technical Justification
-            The current justification ("This is important for us to implement a business scenario") is too generic. Please provide specific details about:
-            What functionality are you trying to implement? (e.g., "validate custom payment rules", "track changes to reconciliation data", "integrate with external system")
-            What is the current technical limitation? (e.g., "cannot intercept the delete operation", "need to validate before balance updates")
-            What specific business scenario or workflow requires these events? (e.g., "compliance requirement to audit all deletions", "custom validation logic for statement balances")
-            Please update the issue description with this information. The issue will be automatically re-analyzed once updated.
-            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
-  - instance_id: microsoft__ALAppExtensions-29444_02
+            ---
+
+            We noticed there is an existing event `OnBeforePhysInvtOrderLineModify` that fires before `PhysInvtOrderLine.Modify()` and provides access to the same `PhysInvtOrderLine` record.
+
+            **Question:** Could you use the existing `OnBeforePhysInvtOrderLineModify` event for your scenario?
+
+            If not, please explain:
+            1. What specific modifications do you need to make to `PhysInvtOrderLine`?
+            2. Why must these modifications happen **before** `CreateReservationEntries` rather than before `Modify()`?
+            3. How does the data flow to `CreateReservationEntries` affect your extension's behavior?
+
+            This helps us avoid adding duplicate events when an existing one could serve the same purpose.
+
+            ---
+
+            **File:** `PhysInvtOrderFinish.Codeunit.al`
+
+  - instance_id: issue-29459-step2
     input:
-      title: "[Event Request] Bank Acc. Reconciliation Line (274) & Bank Acc. Reconciliation (273)"
+      title: "[Event Request] Codeunit 5880 \"Phys. Invt. Order-Finish\""
       description: |
-        Why do you need this change?
-        This is important for us to implement a business scenario
+        ### Why do you need this change?
 
-        Describe the request
-        Hello!
-        We would like you to add the below event requests:
+        Hi,
+        i need an event in the Codeunit 5880 "Phys. Invt. Order-Finish" in the procedure "Code"() to modify the PhysInvtOrderLine record before creating the  reservation entries.
 
-        (a) At table Bank Acc. Reconciliation Line (274), the OnBeforeOnDelete event as per below sample
+        ### Describe the request
 
-        trigger OnDelete()
-        begin
-        OnBeforeOnDelete(Rec, IsHandled);
-        if IsHandled then
-        exit;
-        RemoveApplication();
-        ClearDataExchEntries();
-        RemoveAppliedPaymentEntries();
-        DeletePaymentMatchingDetails();
-        UpdateParentLineStatementAmount();
-        if Find() then;
+        Add a new event in the procedure "Code"(), before the procedure "CreateReservationEntries".
+
+        ```
+        procedure "Code"()
+        var
+            ItemTrackingSetup: Record "Item Tracking Setup";
+            IsHandled: Boolean;
+         begin
+            ...
+            if PhysInvtOrderLine."Use Item Tracking" and
+               not IsBinMandatoryNoWhseTracking(Item, PhysInvtOrderLine."Location Code")
+            then begin
+                PhysInvtOrderLine."Pos. Qty. (Base)" := 0;
+                PhysInvtOrderLine."Neg. Qty. (Base)" := 0;
+                TempInvtOrderTrackingBuffer.Reset();
+                TempInvtOrderTrackingBuffer.DeleteAll();
+                CreateOrderTrackingBufferLines(PhysInvtOrderLine."Document No.", PhysInvtOrderLine."Line No.");
+               
+                // Start Event
+                OnCodeOnBeforeCreateReservationEntriesAfterCreateOrderTrackingBufferLines(PhysInvtOrderLine);
+                // End Event
+
+                CreateReservationEntries(PhysInvtOrderLine."Document No.", PhysInvtOrderLine."Line No.", true, 0);
+            end else
+            ...
         end;
+        ```
 
-        (b) At Bank Acc. Reconciliation (273), an event at the OnValidate trigger of field "Statement Ending Balanc
+        Add the event publisher at the end of the codeunit:
 
-        field(3; "Statement Ending Balance"; Decimal)
-        {
-            AutoFormatExpression = GetCurrencyCode();
-            AutoFormatType = 2;
-            Caption = 'Statement Ending Balance';
+        ```
+        [IntegrationEvent(false, false)]
+        local procedure OnCodeOnBeforeCreateReservationEntriesAfterCreateOrderTrackingBufferLines(var PhysInvtOrderLine: Record "Phys. Invt. Order Line")
+        begin
+        end;
+        ```
 
-            **trigger OnValidate()
-              begin
-                OnBeforeValidateType(Rec);
-          end;**
-        }
-      comments:
-        - author: Agent
-          body: |
-            Thank you for your extensibility request. To process this issue, we need additional information:
+        Internal work item: [AB#614919](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/614919)
 
-            Missing: Meaningful Business/Technical Justification
-            The current justification ("This is important for us to implement a business scenario") is too generic. Please provide specific details about:
-            What functionality are you trying to implement? (e.g., "validate custom payment rules", "track changes to reconciliation data", "integrate with external system")
-            What is the current technical limitation? (e.g., "cannot intercept the delete operation", "need to validate before balance updates")
-            What specific business scenario or workflow requires these events? (e.g., "compliance requirement to audit all deletions", "custom validation logic for statement balances")
-            Please update the issue description with this information. The issue will be automatically re-analyzed once updated.
-            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
-        - author: Author
-          body: |
-            As we are implementing integration with additional system, we would like to implement custom logic which will allow us to define custom rules as existing ones are not enough
+      comments: |
+        **Comment 1 (AleksandricMarko):**
+        ⚠️ **Clarification needed**
+
+        ---
+
+        We noticed there is an existing event `OnBeforePhysInvtOrderLineModify` that fires before `PhysInvtOrderLine.Modify()` and provides access to the same `PhysInvtOrderLine` record.
+
+        **Question:** Could you use the existing `OnBeforePhysInvtOrderLineModify` event for your scenario?
+
+        If not, please explain:
+        1. What specific modifications do you need to make to `PhysInvtOrderLine`?
+        2. Why must these modifications happen **before** `CreateReservationEntries` rather than before `Modify()`?
+        3. How does the data flow to `CreateReservationEntries` affect your extension's behavior?
+
+        This helps us avoid adding duplicate events when an existing one could serve the same purpose.
+
+        ---
+
+        **File:** `PhysInvtOrderFinish.Codeunit.al`
+
+        ---
+
+        **Comment 2 (Mariangela-DeMaio-EOS):**
+        Hi,
+        thanks for the suggestion, I think I can use the event "OnBeforePhysInvtOrderLineModify".
 
     expected:
       labels: "missing-info"
-      comments:
+      state: "closed"
+      comments: 
         - author: Agent
           body: |
-            Thank you for providing additional context. To process this IsHandled event request, please provide the following missing information:
-            Missing Requirements for IsHandled Event (Request a):
-            Alternatives Evaluated: Which existing events or patterns did you try, and why were they insufficient for your scenario?
-            Justification for IsHandled: Why is a standard event, redesign, or contribution not feasible? Please provide specific technical reasons why bypassing the standard delete logic is essential for your integration scenario.
-            Performance Considerations: What is the expected execution frequency of this event? Please assess the potential performance impact.
-            Data Sensitivity Review: Confirm whether this event exposes any sensitive data, or provide rationale if exposure is necessary.
-            Multi-Extension Interaction: What are the risks if multiple extensions subscribe to this event? How will conflicts be mitigated?
-            For more details, see our [Extensibility Guidelines](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility).
-            Please update the issue with these details, and we'll automatically re-analyze.
+            Thanks for confirming! 
+
+            Since the existing `OnBeforePhysInvtOrderLineModify` event works for your scenario, no new event is needed. This event provides `var PhysInvtOrderLine` allowing you to modify the record before it's saved.
+
+            **Existing event you can use:**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnBeforePhysInvtOrderLineModify(var PhysInvtOrderLine: Record "Phys. Invt. Order Line")
+            begin
+            end;
+            ```
+
+            **File:** `PhysInvtOrderFinish.Codeunit.al`
+
+            Closing this issue as your need is already satisfied by the existing event.
+
+  - instance_id: issue-29465
+    input:
+      title: "[extensibility request] - Purch Post + Print - Event OnAfterConfirmPost"
+      description: |
+        ### Why do you need this change?
+
+        Could PurchaseHeader be set as reference?
+
+        Var PurchaseHeader:Record "Purchase Header"
+
+        ### Describe the request
+
+        I need this because i want to modify purchase header.
+
+        ```
+        [IntegrationEvent(false, false)]
+            local procedure OnAfterConfirmPost(var PurchaseHeader: Record "Purchase Header"; var IsHandled: Boolean)
+            begin
+            end;
+        ```
+
+      comments: ""
+
+    expected:
+      labels: ""
+      state: "closed"
+      comments: 
+        - author: Agent
+          body: |
+            ✅ **Good news! This is already implemented in the codebase.**
+
+            The requested change already exists. The `PurchaseHeader` parameter in the `OnAfterConfirmPost` event **already has the `var` modifier**:
+
+            **Existing implementation:**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnAfterConfirmPost(var PurchaseHeader: Record "Purchase Header"; var IsHandled: Boolean)
+            begin
+            end;
+            ```
+
+            **File:** `PurchPostPrint.Codeunit.al`
+
+            You can use this existing event in your extension to modify the Purchase Header after the post confirmation. Closing this issue as the request is already satisfied.

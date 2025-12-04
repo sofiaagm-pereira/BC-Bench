@@ -21,6 +21,7 @@ team_namespace_mapping:
       - "PaymentMethods"
       - "Payroll"
       - "PostingSetup"
+      - "SubscriptionBilling"
       - "TaxEngine"
       - "ValueAddedTax"
     match_strategy: "full_namespace_then_root"

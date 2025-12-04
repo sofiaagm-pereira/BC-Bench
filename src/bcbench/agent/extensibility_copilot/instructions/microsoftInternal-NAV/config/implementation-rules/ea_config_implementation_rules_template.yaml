@@ -1,0 +1,526 @@
+# Implementation Rules Configuration Template
+# Version: 2.0
+# This template allows flexible rule configuration at multiple levels:
+# - Global level (applies to ALL request types)
+# - Request type level (applies to specific request types)
+# - Subtype level (applies to specific subtypes within a request type)
+#
+# Each rule can be enabled/disabled individually using the 'enabled' parameter
+
+# =============================================================================
+# GLOBAL CONFIGURATION
+# =============================================================================
+global_settings:
+  multi_change_policy:
+    enabled: true  # Set to false to allow partial implementation
+    description: "All-or-nothing rule for requests with multiple changes"
+    behavior: "all_or_nothing"
+    rule: "If ANY proposed change is blocked or infeasible, REJECT ALL changes in the request"
+    explanation: "Prevents partial implementation of interdependent changes"
+
+# =============================================================================
+# RULE DEFINITIONS
+# Rules can be referenced at global, request-type, or subtype levels
+# =============================================================================
+rule_library:
+  
+  # ---------------------------------------------------------------------------
+  # ABSOLUTE RESTRICTIONS (Auto-stop conditions)
+  # ---------------------------------------------------------------------------
+  absolute_restrictions:
+    
+    - id: obsolete_code
+      enabled: true  # Set to false to disable this rule
+      severity: "blocking"
+      description: "Target code marked as obsolete"
+      check_method: "pattern_matching"
+      check_patterns: ["[Obsolete", "ObsoleteState", "ObsoleteReason"]
+      action: "auto_reject"
+      rejection_reason: "The target code is marked as obsolete and cannot be modified"
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-obsolete-code"
+    
+    - id: protected_code
+      enabled: true
+      severity: "blocking"
+      description: "Code protected by NOT CLEAN tags or system protection"
+      check_method: "pattern_matching"
+      check_patterns: ["NOT CLEAN", "#region", "#endregion", "protected"]
+      action: "auto_reject"
+      rejection_reason: "The target code is protected and cannot be modified"
+      documentation_link: ""
+    
+    - id: public_signature_change
+      enabled: true
+      severity: "blocking"
+      description: "Requires public procedure signature change"
+      check_method: "code_analysis"
+      check_conditions: ["public_procedure", "signature_modification"]
+      action: "auto_reject"
+      rejection_reason: "Implementation would require changing a public procedure signature, which may break existing code"
+      exceptions:
+        - description: "Adding exit parameter names to public procedures is allowed"
+          examples:
+            - allowed: "procedure IsInvoiceDocType(): Boolean → procedure IsInvoiceDocType() Result: Boolean"
+            - not_allowed: "Changing parameter types, adding new parameters, removing parameters"
+      documentation_link: ""
+    
+    - id: merge_conflicts
+      enabled: true
+      severity: "blocking"
+      description: "Merge conflicts exist in target file"
+      check_method: "file_analysis"
+      check_patterns: ["<<<<<<<", "=======", ">>>>>>>"]
+      action: "auto_reject"
+      rejection_reason: "The target file has merge conflicts that must be resolved first"
+      documentation_link: ""
+    
+    - id: procedure_not_found
+      enabled: true
+      severity: "blocking"
+      description: "Target procedure/trigger not found in expected location"
+      check_method: "codebase_search"
+      action: "request_clarification"
+      rejection_reason: "The specified procedure/trigger was not found in the codebase"
+      suggestion: "The procedure may have been refactored or renamed. Please verify the correct location."
+      documentation_link: ""
+    
+    - id: recordref_parameter_in_event
+      enabled: true
+      severity: "blocking"
+      description: "RecordRef parameter used in event signature"
+      check_method: "parameter_analysis"
+      check_patterns: ["RecordRef"]
+      action: "request_clarification"
+      rejection_reason: "RecordRef parameters should not be added to events. Use specific typed record parameters instead."
+      detailed_explanation: |
+        RecordRef is a dynamic reference type that should not be used as event parameters because:
+        - Reduces type safety and IntelliSense support for subscribers
+        - Makes subscribers more complex (requires dynamic type casting)
+        - Creates maintenance burden when table structures change
+        - Weakens compile-time validation
+        - Using RecordRef parameters allows attackers to access critical/private data and perform unauthorized operations
+        
+        Instead, use the specific record type(s) involved in the operation.
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+    
+    - id: xrec_parameter_in_event
+      enabled: true
+      severity: "critical"
+      description: "xRec parameter used in event signature"
+      check_method: "parameter_analysis"
+      check_patterns: ["xRec"]
+      analysis_required: true
+      action: "request_justification"
+      warning_message: "xRec parameter requires detailed justification as its behavior depends on the calling context."
+      detailed_explanation: |
+        xRec is a special variable that contains the previous values of a record before modification.
+        Using xRec in event parameters requires careful consideration because:
+        
+        **Context Dependency:**
+        - xRec behavior varies significantly depending on where it's used (pages vs other objects)
+        - In table or codeunit: Contains the record values before the current operation
+        - In page: May contain unexpected or stale data depending on calling context
+        - Can be unreliable if called from different contexts than expected
+        
+        **Required Justification:**
+        1. Explain exactly how xRec will be used by subscribers
+        2. Justify why current record (Rec) is insufficient
+        3. Explain why previous values are specifically needed
+        4. Confirm understanding of xRec behavior in the specific context
+      requires_confirmation: true
+      confirmation_required_message: |
+        Please provide detailed justification for the xRec parameter:
+        1. How will subscribers use xRec values?
+        2. Why is current record (Rec) insufficient?
+        3. Why are previous values specifically needed?
+        4. What is the expected behavior of xRec in this context?
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+  
+  # ---------------------------------------------------------------------------
+  # CONDITIONAL RESTRICTIONS (Analysis required)
+  # ---------------------------------------------------------------------------
+  conditional_restrictions:
+    
+    - id: similar_events_exist
+      enabled: true
+      severity: "warning"
+      description: "Similar events already available nearby"
+      check_method: "code_pattern_analysis"
+      analysis_required: true
+      action: "suggest_alternative"
+      suggestion_template: "A similar event exists at this location: {event_name}. Consider adding parameters to the existing event instead of creating a new one."
+      requires_confirmation: true
+      documentation_link: ""
+    
+    - id: events_in_loops
+      enabled: true
+      severity: "warning"
+      description: "Event placement inside loops (performance impact)"
+      check_method: "code_structure_analysis"
+      analysis_required: true
+      action: "request_justification"
+      warning_message: "The proposed event location is inside a loop, which may cause performance issues if subscribers perform heavy operations."
+      requires_confirmation: true
+      documentation_link: ""
+    
+    - id: ishandled_in_loops
+      enabled: true
+      severity: "critical"
+      description: "IsHandled event placement inside loops"
+      check_method: "code_structure_analysis"
+      analysis_required: true
+      action: "suggest_alternative"
+      warning_message: "IsHandled events inside loops can cause severe performance degradation as the bypass logic is evaluated on every iteration."
+      suggestion_template: |
+        Instead of placing an IsHandled event inside the loop, consider adding a regular event **before the loop** after all filtering is complete.
+      requires_confirmation: true
+      documentation_link: ""
+    
+    - id: ishandled_in_ondelete_trigger
+      enabled: true
+      severity: "blocking"
+      description: "IsHandled event at the beginning of OnDelete trigger"
+      check_method: "code_structure_analysis"
+      analysis_required: true
+      action: "auto_reject"
+      rejection_reason: "IsHandled events at the beginning of OnDelete triggers are not allowed. Bypassing delete operations entirely can cause data inconsistency and orphaned records."
+      suggestion_template: |
+        Instead of using an IsHandled event at the beginning of the OnDelete trigger, consider these alternatives:
+        1. Use standard OnBeforeDelete event (without IsHandled) to add custom logic before deletion
+        2. Use OnAfterDelete event to handle post-deletion operations
+        3. If you need to prevent deletion conditionally, use TestField or Error statements before the delete operation
+      requires_confirmation: false
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+    
+    - id: ishandled_unsafe_code_block
+      enabled: true
+      severity: "critical"
+      description: "IsHandled event with unsafe/critical code block"
+      check_method: "code_block_safety_analysis"
+      analysis_required: true
+      action: "suggest_standard_event"
+      safety_checks:
+        - "database_operations_without_bypass"
+        - "unhandled_side_effects"
+        - "critical_error_handling"
+        - "data_consistency_requirements"
+      warning_message: "The code block that would be bypassed contains critical operations that cannot be safely skipped."
+      suggestion_template: "Consider using a standard event instead of IsHandled for this scenario, or redesign to make the block safely skippable."
+      requires_confirmation: true
+      documentation_link: ""
+    
+    - id: sensitive_data_exposure
+      enabled: true
+      severity: "critical"
+      description: "Making procedure public would expose sensitive data"
+      check_method: "code_analysis"
+      analysis_required: true
+      action: "auto_reject"
+      rejection_reason: "The procedure accesses or handles sensitive/private data that should not be exposed publicly"
+      documentation_link: ""
+    
+    - id: internal_procedure_exposure
+      enabled: true
+      severity: "warning"
+      description: "Making internal procedure public"
+      check_method: "code_analysis"
+      analysis_required: true
+      action: "request_justification"
+      warning_message: "This is an internal procedure. Making it public may create API stability concerns."
+      requires_confirmation: true
+      documentation_link: ""
+    
+    - id: integration_event_include_sender_true
+      enabled: true
+      severity: "critical"
+      description: "IntegrationEvent with IncludeSender=true (first parameter is true)"
+      check_method: "code_pattern_analysis"
+      check_patterns: ["IntegrationEvent(true"]
+      analysis_required: true
+      action: "request_justification"
+      warning_message: "The event signature has IncludeSender set to true. This requires detailed justification."
+      detailed_explanation: |
+        Setting IncludeSender to true in an IntegrationEvent means the event publisher will be passed as a parameter to all subscribers.
+        
+        **When used correctly:** Allows subscribers to know which object raised the event (useful for performance tracking, conditional logic based on caller).
+        
+        **Risks if not justified:**
+        - Creates hidden dependency on publisher object implementation
+        - Subscribers might have unintended access to publisher's private state
+        - Makes the event coupling stronger and more fragile
+        
+        **Required from author:**
+        1. Clear business/functional reason why subscribers MUST know the publisher
+        2. Explanation of how subscribers will use this information
+        3. Confirmation that no alternative (event parameters, context fields) would work
+      requires_confirmation: true
+      confirmation_required_message: "Please provide detailed justification for why IncludeSender=true is necessary for this event."
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-implement-events"
+    
+    - id: variable_access_level_change
+      enabled: true
+      severity: "info"
+      description: "Variable access level change from var to protected var"
+      check_method: "code_structure_analysis"
+      analysis_required: true
+      action: "ensure_proper_structure"
+      guidance: |
+        When changing variable access level from 'var' to 'protected var', ensure proper code structure:
+        
+        **Structure Requirements:**
+        1. If object currently has NO 'protected var' section, create it AFTER all 'var' declarations
+        2. Place all protected var declarations in the dedicated 'protected var' section
+        3. Proper order: var declarations → protected var section → procedure declarations
+      documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-protected-variables"
+
+# =============================================================================
+# RULE APPLICATION LEVELS
+# Define which rules apply at which level
+# =============================================================================
+rule_application:
+  
+  # ---------------------------------------------------------------------------
+  # GLOBAL RULES (Apply to ALL request types)
+  # ---------------------------------------------------------------------------
+  global:
+    enabled: true  # Master switch for global rules
+    description: "Rules that apply to all request types without exception"
+    
+    absolute_restrictions:
+      enabled: true  # Can disable entire category
+      rules:
+        - obsolete_code
+        - protected_code
+        - public_signature_change
+        - merge_conflicts
+    
+    conditional_restrictions:
+      enabled: true
+      rules: []  # Add rule IDs that should apply globally with analysis
+  
+  # ---------------------------------------------------------------------------
+  # REQUEST TYPE SPECIFIC RULES
+  # ---------------------------------------------------------------------------
+  request_types:
+    
+    # EVENT REQUEST RULES
+    - type: "event-request"
+      enabled: true
+      description: "Rules specific to event requests"
+      
+      absolute_restrictions:
+        enabled: true
+        rules:
+          - procedure_not_found
+          - recordref_parameter_in_event
+          - xrec_parameter_in_event
+      
+      conditional_restrictions:
+        enabled: true
+        rules:
+          - similar_events_exist
+          - events_in_loops
+          - integration_event_include_sender_true
+      
+      # Subtype-specific rules (e.g., ishandled, standard events)
+      subtypes:
+        - subtype: "ishandled"
+          enabled: true
+          description: "Rules for IsHandled pattern events"
+          
+          absolute_restrictions:
+            enabled: true
+            rules:
+              - ishandled_in_ondelete_trigger
+          
+          conditional_restrictions:
+            enabled: true
+            rules:
+              - ishandled_in_loops
+              - ishandled_unsafe_code_block
+        
+        - subtype: "standard"
+          enabled: true
+          description: "Rules for standard integration events"
+          
+          absolute_restrictions:
+            enabled: true
+            rules: []
+          
+          conditional_restrictions:
+            enabled: true
+            rules: []
+        
+        - subtype: "business-event"
+          enabled: true
+          description: "Rules for business events"
+          
+          absolute_restrictions:
+            enabled: true
+            rules: []
+          
+          conditional_restrictions:
+            enabled: true
+            rules: []
+    
+    # REQUEST FOR EXTERNAL RULES
+    - type: "request-for-external"
+      enabled: true
+      description: "Rules for making procedures/variables external"
+      
+      absolute_restrictions:
+        enabled: true
+        rules: []
+      
+      conditional_restrictions:
+        enabled: true
+        rules:
+          - sensitive_data_exposure
+          - internal_procedure_exposure
+          - variable_access_level_change
+      
+      subtypes:
+        - subtype: "procedure"
+          enabled: true
+          description: "Rules for making procedures external"
+          
+          absolute_restrictions:
+            enabled: true
+            rules: []
+          
+          conditional_restrictions:
+            enabled: true
+            rules:
+              - sensitive_data_exposure
+              - internal_procedure_exposure
+        
+        - subtype: "variable"
+          enabled: true
+          description: "Rules for making variables external/protected"
+          
+          absolute_restrictions:
+            enabled: true
+            rules: []
+          
+          conditional_restrictions:
+            enabled: true
+            rules:
+              - variable_access_level_change
+    
+    # ENUM REQUEST RULES
+    - type: "enum-request"
+      enabled: true
+      description: "Rules for enum extension requests"
+      
+      absolute_restrictions:
+        enabled: true
+        rules: []
+      
+      conditional_restrictions:
+        enabled: true
+        rules: []
+      
+      subtypes: []
+    
+    # EXTENSIBILITY ENHANCEMENT RULES
+    - type: "extensibility-enhancement"
+      enabled: true
+      description: "Rules for general extensibility enhancements"
+      
+      absolute_restrictions:
+        enabled: true
+        rules: []
+      
+      conditional_restrictions:
+        enabled: true
+        rules: []
+      
+      subtypes: []
+    
+    # ADD MORE REQUEST TYPES AS NEEDED
+    - type: "custom-request-type"
+      enabled: false  # Disabled by default
+      description: "Template for additional request types"
+      
+      absolute_restrictions:
+        enabled: true
+        rules: []
+      
+      conditional_restrictions:
+        enabled: true
+        rules: []
+      
+      subtypes:
+        - subtype: "custom-subtype"
+          enabled: false
+          description: "Template for subtypes"
+          
+          absolute_restrictions:
+            enabled: true
+            rules: []
+          
+          conditional_restrictions:
+            enabled: true
+            rules: []
+
+# =============================================================================
+# FEASIBILITY OUTCOME TEMPLATES
+# =============================================================================
+feasibility_outcomes:
+  
+  can_implement:
+    label: "agent-analyzed"
+    action: "approve_and_assign_team"
+    comment_template: "request_approved_ready_for_implementation"
+  
+  cannot_implement:
+    label: "agent-not-processable"
+    action: "add_comment_stop"
+    comment_template: "cannot_implement_blocking_issues"
+  
+  needs_modification:
+    label: "missing-info"
+    action: "request_confirmation"
+    comment_template: "implementation_differs_suggest_alternative"
+  
+  needs_clarification:
+    label: "missing-info"
+    action: "request_clarification"
+    comment_template: "procedure_not_found_ask_verify"
+
+# =============================================================================
+# USAGE NOTES
+# =============================================================================
+# 
+# HOW TO USE THIS TEMPLATE:
+#
+# 1. ENABLE/DISABLE RULES:
+#    - Set 'enabled: true' to activate a rule
+#    - Set 'enabled: false' to deactivate a rule
+#    - You can disable at any level: global, category, request type, or individual rule
+#
+# 2. ADD NEW RULES:
+#    - Define the rule in 'rule_library' section (absolute_restrictions or conditional_restrictions)
+#    - Reference the rule ID in appropriate 'rule_application' sections
+#    - Rules can be applied at global, request-type, or subtype levels
+#
+# 3. RULE HIERARCHY:
+#    - Global rules apply to ALL requests
+#    - Request-type rules apply only to specific request types
+#    - Subtype rules apply only to specific subtypes within a request type
+#    - A rule can be referenced at multiple levels
+#
+# 4. CUSTOMIZE FOR YOUR NEEDS:
+#    - Add custom rule IDs to rule_library
+#    - Define custom request types in rule_application.request_types
+#    - Create custom subtypes for fine-grained control
+#    - Adjust severity levels: "blocking", "critical", "warning", "info"
+#
+# 5. ACTIONS:
+#    - auto_reject: Immediately reject the request
+#    - request_clarification: Ask for more information
+#    - request_justification: Ask for detailed explanation
+#    - suggest_alternative: Provide alternative approach
+#    - ensure_proper_structure: Guide on proper implementation
+#
+# =============================================================================

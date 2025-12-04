@@ -1,27 +1,32 @@
-# Event Request Requirements Configuration
-# Defines minimum requirements for event-request type issues
-# Version: 1.0
+# Event Request Specific Requirements Configuration
+# Defines ADDITIONAL requirements specific to event-request type issues
+# NOTE: General requirements (title, description, meaningful justification) are defined in ea_config_general_requirements.yaml
+# Version: 1.1
 
 event_request:
   enabled: true
-  description: "Event publisher/subscriber requests"
+  description: "Event publisher/subscriber requests - ADDITIONAL requirements beyond general ones"
   detection_keywords: ["publisher", "subscriber", "IntegrationEvent", "event", "OnBefore", "OnAfter"]
+  
+  # ⚠️ CRITICAL RULE: Agent must NEVER suggest IsHandled unless EXPLICITLY requested
+  ishandled_detection_rule:
+    description: "IsHandled sub-type is ONLY detected when author EXPLICITLY requests it"
+    explicit_keywords_required: ["IsHandled", "bypass", "skip", "prevent execution", "handled parameter"]
+    behavior: |
+      - If NONE of the explicit keywords are present → classify as "regular" sub-type
+      - Agent must NEVER infer or suggest IsHandled on its own
+      - Regular events do NOT include IsHandled parameter
+      - This prevents escalating request scope beyond what author asked
   
   subtypes:
     ishandled:
       enabled: true
-      description: "IsHandled event requests with bypass functionality"
-      detection_patterns: ["IsHandled", "is handled", "bypass", "skip"]
+      description: "IsHandled event requests with bypass functionality - ONLY when EXPLICITLY requested"
+      detection_patterns: ["IsHandled", "is handled", "Handled", "bypass", "skip", "prevent execution"]
+      detection_rule: "MUST be EXPLICITLY requested by author - agent cannot suggest or infer"
       max_iterations: 5
       
-      requirements:
-        - id: problem_statement
-          name: "Problem Statement"
-          description: "Clear description of functional gap and what cannot be done today"
-          mandatory: true
-          validation_hints: ["problem", "gap", "need", "requirement", "cannot", "today"]
-          documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility"
-        
+      additional_requirements:
         - id: proposed_code_change
           name: "Proposed Code Change"
           description: "Exact code addition/modification with surrounding context (5-10 lines)"
@@ -46,6 +51,20 @@ event_request:
           description: "Why standard event/redesign/contribution isn't feasible"
           mandatory: true
           validation_hints: ["justify", "why", "ishandled", "necessary", "bypass"]
+          quality_standards:
+            reject_generic_statements: true
+            unacceptable_patterns:
+              - "we need to bypass"
+              - "customers requested"
+              - "important for business"
+              - "flexibility required"
+            requires_specifics:
+              - "Specific technical reason why standard event insufficient"
+              - "Concrete business logic that must be skipped/replaced"
+              - "Exact scenario where bypass is essential"
+              - "Why alternative approaches won't work"
+            good_example: "We must bypass the standard credit limit check because our vertical industry (healthcare) requires real-time insurance pre-authorization instead. The standard check would block orders that are actually covered by insurance, but there's no way to inject our authorization logic before the credit check fails."
+            bad_example: "We need IsHandled to implement our custom logic."
         
         - id: performance_considerations
           name: "Performance Considerations"
@@ -70,14 +89,7 @@ event_request:
       description: "Regular event requests without IsHandled"
       max_iterations: 3
       
-      requirements:
-        - id: problem_statement
-          name: "Problem Statement"
-          description: "Clear description of extensibility need"
-          mandatory: true
-          validation_hints: ["problem", "need", "extensibility", "gap"]
-          documentation_link: "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-contribute-extensibility"
-        
+      requirements:        
         - id: proposed_code_change
           name: "Proposed Code Change"
           description: "Event location, parameters, and placement context"
