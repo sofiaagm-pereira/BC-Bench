@@ -1,7 +1,7 @@
 # Based on https://github.com/SWE-agent/mini-swe-agent/blob/main/src/minisweagent/config/mini.yaml
 
 agent:
-  step_limit: 50
+  step_limit: 200
   cost_limit: 3
   system_template: |
     You are an experienced software engineer in Business Central (BC) and AL programming language.
