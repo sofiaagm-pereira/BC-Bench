@@ -1,4 +1,7 @@
 from collections.abc import Callable
+from pathlib import Path
+
+import yaml
 
 from bcbench.collection.patch_utils import extract_file_paths_from_patch
 from bcbench.config import get_config
@@ -27,19 +30,49 @@ _config = get_config()
 __all__ = ["TestGenerationPipeline"]
 
 
+def _get_test_generation_input_mode() -> str:
+    """Read test-generation input mode from copilot config.
+
+    Returns:
+        str: The validated input mode, either "gold-patch" or "problem-statement"
+
+    Raises:
+        ValueError: If the input mode is not one of the valid values
+    """
+    config_file: Path = _config.paths.agent_dir / "config.yaml"
+    copilot_config = yaml.safe_load(config_file.read_text())
+    input_mode = copilot_config.get("prompt", {}).get("test-generation-input", "problem-statement")
+
+    valid_modes = {"gold-patch", "problem-statement"}
+    if input_mode not in valid_modes:
+        raise ValueError(f"Invalid test-generation-input mode: '{input_mode}'. Must be one of {valid_modes}. Note: Use hyphens, not underscores (e.g., 'gold-patch' not 'gold_patch')")
+
+    return input_mode
+
+
 class TestGenerationPipeline(EvaluationPipeline):
     """Pipeline for test-generation evaluation category.
 
     Workflow:
-    1. Setup: clean repo, checkout base commit, copy problem statement, build
+    1. Setup: clean repo, checkout base commit, copy problem statement (or apply gold patch), build
     2. Run agent: execute agent to generate test code
     3. Evaluate: build, run tests with expected failures, then apply original patch, build, run tests with expected passes
+
+    Input modes (configured in copilot/config.yaml):
+    - problem-statement: Agent receives bug description, generates tests from problem statement
+    - gold-patch: Agent sees the fixed code, generates tests that verify the fix works
     """
 
     def setup(self, context: EvaluationContext) -> None:
         clean_repo(context.repo_path)
         checkout_commit(context.repo_path, context.entry.base_commit)
-        copy_problem_statement_folder(context.entry, context.repo_path)
+
+        input_mode: str = _get_test_generation_input_mode()
+        logger.info(f"Test generation input mode: {input_mode}")
+        if input_mode == "gold-patch":
+            apply_patch(context.repo_path, context.entry.patch, f"{context.entry.instance_id} gold patch")
+        else:
+            copy_problem_statement_folder(context.entry, context.repo_path)
 
         build_and_publish_projects(
             context.repo_path,
