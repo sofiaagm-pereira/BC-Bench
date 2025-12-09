@@ -34,7 +34,7 @@ uv run bcbench --help
 
 # Run Copilot CLI on a single entry (generate patch only, no build/test)
 # This is very fast, give it a go and see it live!
-uv run bcbench dataset view microsoftInternal__NAV-211710
+uv run bcbench dataset view microsoftInternal__NAV-211710 --category bug-fix
 ```
 
 ## Dataset
