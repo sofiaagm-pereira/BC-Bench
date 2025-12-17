@@ -62,31 +62,3 @@ Comparing experimental configurations for GitHub Copilot CLI with **claude-haiku
     {% endfor %}
   </tbody>
 </table>
-
-Comparing experimental configurations for GitHub Copilot CLI with **claude-opus-4.5**.
-
-<table>
-  <thead>
-    <tr>
-      <th>MCP Servers</th>
-      <th>% Resolved</th>
-      <th>Avg Duration (s)</th>
-      <th>Date</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% assign sorted_results = site.data.bug-fix | sort: "percentage" | reverse %}
-    {% for result in sorted_results %}
-      {% if result.model == "claude-opus-4-5" and result.agent_name == "GitHub Copilot CLI" %}
-        {% unless result.experiment.custom_instructions == true %}
-    <tr>
-      <td>{% if result.experiment.mcp_servers %}{{ result.experiment.mcp_servers }}{% else %}None{% endif %}</td>
-      <td>{{ result.resolved }} / {{ result.total }} ({{ result.percentage }}%)</td>
-      <td>{% if result.average_duration %}{{ result.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
-      <td><a href="https://github.com/microsoft/BC-Bench/actions/runs/{{ result.github_run_id }}" target="_blank">{{ result.date }}</a></td>
-    </tr>
-        {% endunless %}
-      {% endif %}
-    {% endfor %}
-  </tbody>
-</table>
