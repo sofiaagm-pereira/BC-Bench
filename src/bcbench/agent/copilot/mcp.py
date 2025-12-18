@@ -81,13 +81,13 @@ def build_mcp_config(copilot_config: dict[str, Any], entry: DatasetEntry, repo_p
     if not mcp_servers:
         return None, None
 
-    _test_projects, app_projects = categorize_projects(entry.project_paths)
+    test_projects, _app_projects = categorize_projects(entry.project_paths)
     template_context = {"repo_path": repo_path}
     mcp_server_names: list[str] = [server["name"] for server in mcp_servers]
     mcp_config = {"mcpServers": dict(map(lambda s: _build_server_entry(s, template_context), mcp_servers))}
 
     if al_mcp:
-        _mcp_server_manager.launch(repo_path / app_projects[0])
+        _mcp_server_manager.launch(repo_path / test_projects[0])
 
     logger.info(f"Using MCP servers: {mcp_server_names}")
     logger.debug(f"MCP configuration: {json.dumps(mcp_config, indent=2)}")
