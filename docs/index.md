@@ -3,7 +3,7 @@ layout: default
 title: BC-Bench
 ---
 
-A benchmark for evaluating AI coding on Business Central (AL) development tasks, inspired by [SWE-Bench](https://github.com/swe-bench/SWE-bench).
+A benchmark for evaluating Agentic Development on Business Central (AL) development tasks, inspired by [SWE-Bench](https://github.com/swe-bench/SWE-bench).
 
 ## Baseline Leaderboard
 
