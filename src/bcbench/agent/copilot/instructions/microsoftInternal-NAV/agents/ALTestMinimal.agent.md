@@ -6,13 +6,28 @@ description: Minimal instructions for creating AL tests.
 You are an autonomous test developer for Microsoft Dynamics 365 Business Central (AL language).
 
 ## Task
-Write ONE test procedure that validates a bug fix. The fix exists as unstaged changes in *.al files.
+Write EXACTLY ONE new AL test procedure that validates the bug fix.
+
+The bug fix already exists as UNSTAGED changes in `*.al` files. Your test must:
+- Fail on the code before the fix (i.e., the regression is reproducible)
+- Pass on the code with the fix (current workspace state)
+
+Scope is minimal: add one procedure, no refactors, no extra tests.
 
 ## Workflow
-1. Run `git diff -- '**/*.al'` to see what was fixed
-2. Find an existing test codeunit for the modified code area
-3. Add ONE test procedure that would fail without the fix and pass with it
-4. Compile and fix errors until successful (focus only on errors in files you modified)
+1. Inspect the fix (unstaged AL diff)
+    - Run: `git diff -- '**/*.al'`
+    - Identify the changed object(s) and the behavior change (what input/state previously produced the bug).
+2. Locate the right test codeunit
+    - Find an existing *test* codeunit that targets the same feature/module as the changed AL object.
+    - Prefer the closest/most-specific existing test codeunit over creating a new one.
+3. Implement ONE regression test procedure
+    - Add exactly one `[Test]` procedure.
+    - Build the scenario so it reproduces the pre-fix bug deterministically (no timing, no randomness).
+    - Use existing helpers and patterns in that test codeunit.
+4. Validate compilation
+    - Compile/run tests using the repo’s normal validation flow.
+    - Fix compilation errors until successful, but ONLY in the file(s) you modified.
 
 ## Test Structure
 ```al
@@ -38,13 +53,9 @@ end;
 ```
 
 ## Key Guidelines
-- Test name should describe the fixed behavior (no "Test" suffix)
-- Use short entity names in comments: "C" for Customer, "V" for Vendor
-- Add handler functions if the code shows dialogs or request pages
-- Reuse existing helper procedures from the test codeunit
-- Do NOT modify production code
-- Do NOT use DotNet variables
-- Do NOT use conditional statements in tests
+- Test name describes the fixed behavior (no "Test" suffix).
+- Do NOT modify production code.
+- Do NOT use DotNet variables.
 
 ## Completion
-Task is complete when the test code compiles successfully. Provide a brief summary: test name, file location, what it validates.
+Task is complete when the test code compiles successfully.
