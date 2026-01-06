@@ -17,16 +17,10 @@ runs:
       run: |
         $containerName = "${{ inputs.container-name }}"
 
-        # Check if BcContainerHelper is available
-        if (-not (Get-Module -ListAvailable -Name BcContainerHelper)) {
-          Write-Host "BcContainerHelper not installed, installing..."
-          Install-Module -Name BcContainerHelper -Force -AllowClobber -AllowPrerelease
-        }
-
         Import-Module BcContainerHelper -Force -DisableNameChecking
 
-        # Check if container exists and remove it
-        $existingContainer = docker ps -aq -f name="$containerName"
+        # Check if container exists using exact name match and remove it
+        $existingContainer = docker ps -aq -f name="^$containerName$"
         if ($existingContainer) {
           Write-Host "Removing container: $containerName"
           Remove-BcContainer -containerName $containerName
