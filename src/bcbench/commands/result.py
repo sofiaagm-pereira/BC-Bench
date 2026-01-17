@@ -9,21 +9,8 @@ from bcbench.cli_options import DatasetPath, OutputDir, RunId
 from bcbench.config import get_config
 from bcbench.logger import get_logger
 from bcbench.results import BaseEvaluationResult, EvaluationResultSummary, create_console_summary, create_github_job_summary, create_result_from_json, write_bceval_results
-from bcbench.types import ExperimentConfiguration
 
 logger = get_logger(__name__)
-
-
-def _experiments_equal(exp1: ExperimentConfiguration | None, exp2: ExperimentConfiguration | None) -> bool:
-    """Compare two experiment configurations, treating None as equivalent to an empty config.
-
-    This handles the case where JSON has "experiment": null but the pipeline creates
-    an ExperimentConfiguration with all default values.
-    """
-    # Normalize None to empty config for comparison
-    exp1_normalized = exp1 if exp1 is not None and not exp1.is_empty() else None
-    exp2_normalized = exp2 if exp2 is not None and not exp2.is_empty() else None
-    return exp1_normalized == exp2_normalized
 
 
 _config = get_config()
@@ -86,20 +73,27 @@ def result_summarize(
     summary.save(run_dir, summary_output)
 
 
+def _get_combination_key(result: EvaluationResultSummary) -> tuple[str, str, str | None]:
+    """Get a unique key for agent+model+experiment combination."""
+    exp_key = None
+    if result.experiment and not result.experiment.is_empty():
+        exp_key = json.dumps(result.experiment.model_dump(mode="json"), sort_keys=True)
+    return (result.agent_name, result.model, exp_key)
+
+
 @result_app.command("update")
 def result_update(
     evaluation_summary: Annotated[Path, typer.Argument(help="Path to a single evaluation run's summary JSON", exists=True, file_okay=True, dir_okay=False)],
     leaderboard_dir: Annotated[Path, typer.Option(help="Path to the directory containing category-specific leaderboard files")] = _config.paths.leaderboard_dir,
+    n: Annotated[int, typer.Option(help="Max number of results to store per agent+model+experiment combination (for pass@k)")] = 5,
 ):
     """
     Update the public leaderboard with a new evaluation summary.
 
-    Takes a single evaluation run's summary and updates the appropriate category-specific
-    leaderboard file (e.g. bug-fix.json), either replacing an existing
-    agent-model combination or adding a new entry.
+    Takes a single evaluation run's summary and updates the appropriate category-specific leaderboard file (e.g. bug-fix.json).
+    Supports storing multiple results per agent-model-experiment combination for multi-run metrics.
 
-    Example:
-        bcbench result update evaluation_results/12345/evaluation_summary.json
+    Stores up to n results per combination, removing the oldest when exceeding n.
     """
     logger.info(f"Loading evaluation summary from: {evaluation_summary}")
     with open(evaluation_summary, encoding="utf-8") as f:
@@ -121,18 +115,37 @@ def result_update(
         logger.info(f"Creating new leaderboard file: {leaderboard_path}")
         existing_results = []
 
-    # Check if result already exists for this agent+model+experiment combination
-    updated = False
-    for i, result in enumerate(existing_results):
-        if result.agent_name == new_result.agent_name and result.model == new_result.model and _experiments_equal(result.experiment, new_result.experiment):
-            logger.info(f"Found existing result for '{new_result.agent_name}' + '{new_result.model}', replacing...")
-            existing_results[i] = new_result
-            updated = True
-            break
+    # Group results by combination key
+    new_result_key: tuple[str, str, str | None] = _get_combination_key(new_result)
 
-    if not updated:
-        logger.info(f"No existing result found for '{new_result.agent_name}' + '{new_result.model}', adding new entry")
-        existing_results.append(new_result)
+    # Find all results matching this combination
+    matching_indices: list[int] = [i for i, r in enumerate(existing_results) if _get_combination_key(r) == new_result_key]
+
+    if n == 1:
+        # Legacy behavior: replace existing result
+        if matching_indices:
+            logger.info(f"Found existing result for '{new_result.agent_name}' + '{new_result.model}', replacing...")
+            existing_results[matching_indices[0]] = new_result
+        else:
+            logger.info(f"No existing result found for '{new_result.agent_name}' + '{new_result.model}', adding new entry")
+            existing_results.append(new_result)
+    else:
+        # Multi-result mode for pass@k
+        matching_results: list[EvaluationResultSummary] = [existing_results[i] for i in matching_indices]
+
+        if len(matching_results) < n:
+            # Room for more results, just append
+            logger.info(f"Adding result ({len(matching_results) + 1}/{n}) for '{new_result.agent_name}' + '{new_result.model}'")
+            existing_results.append(new_result)
+        else:
+            # Need to remove oldest and add new
+            # Sort matching results by date to find oldest
+            matching_with_indices: list[tuple[int, EvaluationResultSummary]] = [(i, existing_results[i]) for i in matching_indices]
+            matching_with_indices.sort(key=lambda x: x[1].date)
+            oldest_index = matching_with_indices[0][0]
+
+            logger.info(f"Replacing oldest result (date: {existing_results[oldest_index].date}) for '{new_result.agent_name}' + '{new_result.model}'")
+            existing_results[oldest_index] = new_result
 
     # Write back as list of dicts
     with open(leaderboard_path, "w", encoding="utf-8") as f:

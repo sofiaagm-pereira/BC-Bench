@@ -440,6 +440,8 @@ def test_result_update_replaces_existing_entry(sample_leaderboard_and_summary):
             str(summary_path),
             "--leaderboard-dir",
             str(leaderboard_dir),
+            "--n",
+            "1",
         ],
     )
 
@@ -505,6 +507,8 @@ def test_result_update_adds_new_entry(sample_leaderboard_and_summary):
             str(summary_path),
             "--leaderboard-dir",
             str(leaderboard_dir),
+            "--n",
+            "1",
         ],
     )
 
@@ -566,6 +570,8 @@ def test_result_update_distinguishes_by_mcp_servers(sample_leaderboard_and_summa
             str(summary_path),
             "--leaderboard-dir",
             str(leaderboard_dir),
+            "--n",
+            "1",
         ],
     )
 
@@ -660,3 +666,120 @@ def test_result_update_does_not_add_multiple_newlines_when_run_twice(sample_lead
     # Count trailing newlines after second update
     trailing_newlines_second = len(content_after_second) - len(content_after_second.rstrip(b"\n"))
     assert trailing_newlines_second == 1, "File should still have exactly 1 trailing newline after second update, not 2"
+
+
+@pytest.mark.integration
+def test_result_update_stores_multiple_results_with_default_n(sample_leaderboard_and_summary):
+    leaderboard_dir, summary_path = sample_leaderboard_and_summary
+    bugfix_leaderboard_path = leaderboard_dir / "bug-fix.json"
+
+    # Default n=5 - should add as new entry (even though combination exists)
+    # because n>1 means we keep multiple results
+    new_summary = {
+        "total": 10,
+        "resolved": 8,
+        "failed": 2,
+        "build": 10,
+        "percentage": 80.0,
+        "date": "2025-01-15",
+        "model": "gpt-4o",
+        "category": "bug-fix",
+        "agent_name": "copilot",
+        "average_duration": 130.0,
+        "average_prompt_tokens": 5200.0,
+        "average_completion_tokens": 1600.0,
+        "average_llm_duration": 90.0,
+        "github_run_id": "run_new_1",
+        "experiment": {
+            "mcp_servers": ["server1", "server2"],
+            "custom_instructions": True,
+            "custom_agent": None,
+        },
+    }
+
+    with open(summary_path, "w") as f:
+        json.dump(new_summary, f, indent=2)
+
+    result = runner.invoke(
+        app,
+        ["result", "update", str(summary_path), "--leaderboard-dir", str(leaderboard_dir)],
+    )
+
+    assert result.exit_code == 0
+
+    with open(bugfix_leaderboard_path) as f:
+        updated_leaderboard = json.load(f)
+
+    # Should have 3 entries now: original 2 + 1 new
+    assert len(updated_leaderboard) == 3
+
+    # Verify we have 2 entries for copilot + gpt-4o + server1,server2
+    matching = [e for e in updated_leaderboard if e["agent_name"] == "copilot" and e["model"] == "gpt-4o" and e.get("experiment", {}).get("mcp_servers") == ["server1", "server2"]]
+    assert len(matching) == 2
+
+
+@pytest.mark.integration
+def test_result_update_replaces_oldest_when_exceeding_n(sample_leaderboard_and_summary):
+    leaderboard_dir, _ = sample_leaderboard_and_summary
+    bugfix_leaderboard_path = leaderboard_dir / "bug-fix.json"
+
+    # First, add 4 more results to have 5 total for copilot + gpt-4o + servers combination (default n=5)
+    base_summary = {
+        "total": 10,
+        "resolved": 7,
+        "failed": 3,
+        "build": 9,
+        "percentage": 70.0,
+        "model": "gpt-4o",
+        "category": "bug-fix",
+        "agent_name": "copilot",
+        "average_duration": 120.0,
+        "average_prompt_tokens": 5000.0,
+        "average_completion_tokens": 1500.0,
+        "average_llm_duration": 85.0,
+        "experiment": {
+            "mcp_servers": ["server1", "server2"],
+            "custom_instructions": True,
+            "custom_agent": None,
+        },
+    }
+
+    summary_path = leaderboard_dir.parent / "test_summary.json"
+
+    # Add results to fill up to n=5 (original is from 2025-01-10)
+    for _, (day, run_id) in enumerate([("2025-01-16", "run_second"), ("2025-01-17", "run_third"), ("2025-01-18", "run_fourth"), ("2025-01-19", "run_fifth")]):
+        summary = {**base_summary, "date": day, "github_run_id": run_id}
+        with open(summary_path, "w") as f:
+            json.dump(summary, f, indent=2)
+        runner.invoke(app, ["result", "update", str(summary_path), "--leaderboard-dir", str(leaderboard_dir)])
+
+    # Now we should have 5 results for this combination
+    with open(bugfix_leaderboard_path) as f:
+        leaderboard = json.load(f)
+
+    matching = [e for e in leaderboard if e["agent_name"] == "copilot" and e["model"] == "gpt-4o" and e.get("experiment", {}).get("mcp_servers") == ["server1", "server2"]]
+    assert len(matching) == 5
+
+    # Now add a 6th result - should replace oldest (2025-01-10)
+    summary_new = {**base_summary, "date": "2025-01-20", "github_run_id": "run_sixth", "resolved": 9}
+    with open(summary_path, "w") as f:
+        json.dump(summary_new, f, indent=2)
+
+    result = runner.invoke(app, ["result", "update", str(summary_path), "--leaderboard-dir", str(leaderboard_dir)])
+    assert result.exit_code == 0
+
+    with open(bugfix_leaderboard_path) as f:
+        final_leaderboard = json.load(f)
+
+    # Should still have 5 results for this combination
+    final_matching = [e for e in final_leaderboard if e["agent_name"] == "copilot" and e["model"] == "gpt-4o" and e.get("experiment", {}).get("mcp_servers") == ["server1", "server2"]]
+    assert len(final_matching) == 5
+
+    # The oldest (2025-01-10) should be gone, replaced by 2025-01-20
+    dates = sorted(e["date"] for e in final_matching)
+    assert dates == ["2025-01-16", "2025-01-17", "2025-01-18", "2025-01-19", "2025-01-20"]
+
+    # Verify the newest entry has the correct resolved count
+    newest = next(e for e in final_matching if e["date"] == "2025-01-20")
+    assert newest["resolved"] == 9
+    assert newest["github_run_id"] == "run_sixth"
