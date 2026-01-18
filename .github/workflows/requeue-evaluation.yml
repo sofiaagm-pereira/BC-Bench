@@ -33,11 +33,15 @@ jobs:
             | jq -r ".[] | select(.object.sha == \"${COMMIT_SHA}\") | .ref" 2>/dev/null \
             | head -n 1 | sed 's|refs/tags/||') || true
 
+          # Extract agent name from workflow file (e.g., "claude-evaluation.yml" -> "claude")
+          WORKFLOW_FILE="${{ inputs.workflow-file }}"
+          AGENT_NAME="${WORKFLOW_FILE%%-evaluation.yml}"
+
           if [ -n "${EXISTING_TAG}" ] && [ "${EXISTING_TAG}" != "null" ]; then
             echo "Reusing existing tag: ${EXISTING_TAG}"
             TAG_NAME="${EXISTING_TAG}"
           else
-            TAG_NAME="eval-run-${{ github.run_id }}"
+            TAG_NAME="eval-run-${AGENT_NAME}-${{ github.run_id }}"
             echo "Creating ephemeral tag: ${TAG_NAME}"
             gh api repos/${{ github.repository }}/git/refs \
               --method POST \
