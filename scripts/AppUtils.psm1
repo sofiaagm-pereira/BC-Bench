@@ -55,7 +55,6 @@ function Invoke-AppBuildAndPublish {
             appSymbolsFolder     = $appSymbolsFolder
             GenerateReportLayout = 'No'
             gitHubActions        = $false
-            nowarn               = 'AL0432;AL0523;AL0547;AL0551;AL0602;AL0659;AL0684;AL0685;AL0748;AL0254;AL0667'
         }
 
         if ($env:RUNNER_DEBUG -eq '1') {
@@ -159,7 +158,10 @@ function Invoke-BCTest {
         returnTrueIfAllPassed = $true
         testCodeunitRange     = $codeunitID.ToString()
         testFunction          = $combinedFunctions
-        detailed              = $true
+    }
+
+    if ($env:RUNNER_DEBUG -eq '1') {
+        $testParams.detailed = $true
     }
 
     try {
@@ -225,7 +227,6 @@ function Invoke-DatasetTests {
     }
 
     [bool] $allTestsPassed = $true
-    [System.Collections.Generic.List[string]] $testResults = @()
 
     foreach ($testEntry in $testEntries) {
         [int] $codeunitID = $testEntry.codeunitID
@@ -233,21 +234,16 @@ function Invoke-DatasetTests {
 
         [bool] $testPassed = Invoke-BCTest -containerName $containerName -credential $credential -codeunitID $codeunitID -functionNames $functionNames
 
-        $status = if ($testPassed) { "PASSED" } else { "FAILED" }
-        $testResults.Add("Codeunit $codeunitID ($($functionNames -join ', ')): $status")
-
         if (-not $testPassed) {
             $allTestsPassed = $false
         }
     }
 
-    [string] $resultsSummary = $testResults -join "`n"
-
     if ($expectation -eq 'Pass' -and -not $allTestsPassed) {
-        throw "Tests were expected to Pass but some tests failed`n$resultsSummary"
+        throw "Tests were expected to Pass but some tests failed"
     }
     elseif ($expectation -eq 'Fail' -and $allTestsPassed) {
-        throw "Tests were expected to Fail but all tests passed`n$resultsSummary"
+        throw "Tests were expected to Fail but all tests passed"
     }
 
     Write-Log "Test expectation '$expectation' met successfully" -Level Success
