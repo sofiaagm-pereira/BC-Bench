@@ -1,6 +1,7 @@
 import re
 
 from bcbench.dataset import TestEntry
+from bcbench.exceptions import NoTestsExtractedError
 from bcbench.logger import get_logger
 
 logger = get_logger(__name__)
@@ -31,7 +32,10 @@ def extract_tests_from_patch(generated_patch: str, file_contents: dict[str, str]
         file_contents: Dict mapping file paths to their content
 
     Returns:
-        List of TestEntry dicts with codeunitID and functionName (may be empty if no tests found)
+        List of TestEntry dicts with codeunitID and functionName
+
+    Raises:
+        NoTestsExtractedError: If no test entries are found in the patch
     """
     # Accumulator: codeunit_id -> set of function names (mutable during processing)
     codeunit_functions: dict[int, set[str]] = {}
@@ -77,5 +81,8 @@ def extract_tests_from_patch(generated_patch: str, file_contents: dict[str, str]
             elif not line.startswith("+"):
                 found_test_attribute = False
 
-    # Convert to immutable TestEntry objects (returns empty list if no tests found)
+    if not codeunit_functions:
+        raise NoTestsExtractedError()
+
+    # Convert to immutable TestEntry objects
     return [TestEntry(codeunitID=codeunit_id, functionName=frozenset(funcs)) for codeunit_id, funcs in codeunit_functions.items()]

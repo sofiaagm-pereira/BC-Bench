@@ -145,10 +145,9 @@ def build_and_publish_projects(repo_path: Path, project_paths: list[str], contai
                 timeout=timeout,
             )
         except subprocess.CalledProcessError as e:
-            logger.error(f"Build failed for {project_path}")
-            logger.error(f"stdout: {e.stdout}")
-            logger.error(f"stderr: {e.stderr}")
-            raise BuildError(project_path, f"{e.stdout}\n{e.stderr}") from None
+            logger.debug(f"Build failed for {project_path}")
+            logger.debug(f"Full command output: {e.stdout}")
+            raise BuildError(project_path, e.stderr) from None
         except subprocess.TimeoutExpired:
             logger.error(f"Build timed out for {project_path} after {timeout} seconds")
             raise BuildTimeoutExpired(project_path, timeout) from None
@@ -185,7 +184,7 @@ def run_test_suite(test_entries: list[TestEntry], expectation: Literal["Pass", "
     try:
         logger.info(f"Running test suite with expectation: {expectation}")
         logger.info(f"Tests to run: {test_entries_json}")
-        result = subprocess.run(
+        subprocess.run(
             ["pwsh", "-NoProfile", "-NonInteractive", "-Command", ps_script],
             capture_output=True,
             check=True,
@@ -194,10 +193,8 @@ def run_test_suite(test_entries: list[TestEntry], expectation: Literal["Pass", "
         )
         logger.info(f"Test suite completed with expectation met: {expectation}")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Test result did not meet expectation (expected: {expectation})")
-        logger.error(f"stdout: {e.stdout}")
-        logger.error(f"stderr: {e.stderr}")
-        raise TestExecutionError(expectation, f"{e.stdout}\n{e.stderr}") from None
+        logger.debug(f"Test result did not meet expectation (expected: {expectation}): {e.stderr}")
+        raise TestExecutionError(expectation, e.stderr) from None
     except subprocess.TimeoutExpired:
         logger.error(f"Test execution timed out after {_config.timeout.test_execution} seconds")
         raise TestExecutionTimeoutExpired(test_entries_json, _config.timeout.test_execution) from None
