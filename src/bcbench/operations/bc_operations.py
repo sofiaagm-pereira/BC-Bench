@@ -185,7 +185,7 @@ def run_test_suite(test_entries: list[TestEntry], expectation: Literal["Pass", "
     try:
         logger.info(f"Running test suite with expectation: {expectation}")
         logger.info(f"Tests to run: {test_entries_json}")
-        subprocess.run(
+        result = subprocess.run(
             ["pwsh", "-NoProfile", "-NonInteractive", "-Command", ps_script],
             capture_output=True,
             check=True,
