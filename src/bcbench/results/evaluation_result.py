@@ -208,8 +208,8 @@ def _calculate_pass_power_k(instance_resolved: dict[str, list[bool]], k: int) ->
     count = 0
     for results in instance_resolved.values():
         first_k = results[:k]
-        # Instance counts if resolved in at least one of the first k runs
-        if len(first_k) == k and any(first_k):
+        # Instance counts if resolved in ALL of the first k runs (intersection)
+        if len(first_k) == k and all(first_k):
             count += 1
     return count
 

@@ -521,10 +521,85 @@ class TestLeaderboardAggregate:
         assert agg.total == 3
         # pass^1: first run only - test__1 resolved
         assert agg.pass_power_1 == 1
-        # pass^3: resolved in at least one of 3 runs - all 3 instances qualify
-        assert agg.pass_power_3 == 3
+        # pass^3: resolved in ALL 3 runs - no instance qualifies (each only resolved in 1 run)
+        assert agg.pass_power_3 == 0
         # pass^5: not enough runs
         assert agg.pass_power_5 is None
+
+    def test_pass_power_k_calculation(self):
+        from bcbench.results.evaluation_result import LeaderboardAggregate
+
+        # Create 3 runs where:
+        # - test__1: resolved in runs 1,2,3 (all) -> counts for pass^1, pass^3
+        # - test__2: resolved in runs 1,2 only -> counts for pass^1, pass^2, not pass^3
+        # - test__3: resolved in run 1 only -> counts for pass^1 only
+        run1 = EvaluationResultSummary.from_results(
+            [
+                create_bugfix_result(instance_id="test__1", resolved=True),
+                create_bugfix_result(instance_id="test__2", resolved=True),
+                create_bugfix_result(instance_id="test__3", resolved=True),
+            ],
+            run_id="run_1",
+        )
+        run2 = EvaluationResultSummary.from_results(
+            [
+                create_bugfix_result(instance_id="test__1", resolved=True),
+                create_bugfix_result(instance_id="test__2", resolved=True),
+                create_bugfix_result(instance_id="test__3", resolved=False),
+            ],
+            run_id="run_2",
+        )
+        run3 = EvaluationResultSummary.from_results(
+            [
+                create_bugfix_result(instance_id="test__1", resolved=True),
+                create_bugfix_result(instance_id="test__2", resolved=False),
+                create_bugfix_result(instance_id="test__3", resolved=False),
+            ],
+            run_id="run_3",
+        )
+
+        agg = LeaderboardAggregate.from_runs([run1, run2, run3])
+
+        # pass^1: 3 instances resolved in run 1
+        assert agg.pass_power_1 == 3
+        # pass^3: only test__1 resolved in ALL 3 runs
+        assert agg.pass_power_3 == 1
+        # Verify monotonic: pass^1 >= pass^3
+        assert agg.pass_power_1 >= agg.pass_power_3
+
+    def test_pass_power_k_with_consistent_results(self):
+        """When an instance passes all runs, it counts for all pass^k levels."""
+        from bcbench.results.evaluation_result import LeaderboardAggregate
+
+        # All instances pass all runs
+        run1 = EvaluationResultSummary.from_results(
+            [
+                create_bugfix_result(instance_id="test__1", resolved=True),
+                create_bugfix_result(instance_id="test__2", resolved=True),
+            ],
+            run_id="run_1",
+        )
+        run2 = EvaluationResultSummary.from_results(
+            [
+                create_bugfix_result(instance_id="test__1", resolved=True),
+                create_bugfix_result(instance_id="test__2", resolved=True),
+            ],
+            run_id="run_2",
+        )
+        run3 = EvaluationResultSummary.from_results(
+            [
+                create_bugfix_result(instance_id="test__1", resolved=True),
+                create_bugfix_result(instance_id="test__2", resolved=True),
+            ],
+            run_id="run_3",
+        )
+
+        agg = LeaderboardAggregate.from_runs([run1, run2, run3])
+
+        # All instances pass all runs, so pass^1 == pass^3
+        assert agg.pass_power_1 == 2
+        assert agg.pass_power_3 == 2
+        assert agg.pass_power_1 == agg.pass_power_3
 
 
 class TestLeaderboard:

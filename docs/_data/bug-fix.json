@@ -840,11 +840,11 @@
       "category": "bug-fix",
       "experiment": null,
       "total": 72,
-      "num_runs": 1,
+      "num_runs": 3,
       "pass_power_1": 40,
-      "pass_power_3": null,
+      "pass_power_3": 31,
       "pass_power_5": null,
-      "average_duration": 145.2
+      "average_duration": 151.4
     }
   ]
 }
