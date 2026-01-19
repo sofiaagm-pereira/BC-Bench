@@ -28,10 +28,10 @@ This category "reverses" the SWE-Bench workflow: instead of generating a fix, th
     <tr>
       <td>{{ agg.agent_name }}</td>
       <td>{{ agg.model }}</td>
-      <td>{% if agg.pass_power_1 %}{{ agg.pass_power_1 }} / {{ agg.total }} ({{ agg.pass_power_1 | times: 100.0 | divided_by: agg.total | round: 1 }}%){% else %}N/A{% endif %}</td>
-      <td>{% if agg.pass_power_3 %}{{ agg.pass_power_3 }} / {{ agg.total }} ({{ agg.pass_power_3 | times: 100.0 | divided_by: agg.total | round: 1 }}%){% else %}N/A{% endif %}</td>
-      <td>{% if agg.pass_power_5 %}{{ agg.pass_power_5 }} / {{ agg.total }} ({{ agg.pass_power_5 | times: 100.0 | divided_by: agg.total | round: 1 }}%){% else %}N/A{% endif %}</td>
-      <td>{% if agg.average_duration %}{{ agg.average_duration | round: 1 }}{% else %}N/A{% endif %}</td>
+      <td>{% if agg.pass_power_1 %}{{ agg.pass_power_1 }} / {{ agg.total }} ({{ agg.pass_power_1 | times: 100.0 | divided_by: agg.total | round: 1 }}%){% else %}{% endif %}</td>
+      <td>{% if agg.pass_power_3 %}{{ agg.pass_power_3 }} / {{ agg.total }} ({{ agg.pass_power_3 | times: 100.0 | divided_by: agg.total | round: 1 }}%){% else %}{% endif %}</td>
+      <td>{% if agg.pass_power_5 %}{{ agg.pass_power_5 }} / {{ agg.total }} ({{ agg.pass_power_5 | times: 100.0 | divided_by: agg.total | round: 1 }}%){% else %}{% endif %}</td>
+      <td>{% if agg.average_duration %}{{ agg.average_duration | round: 1 }}{% else %}{% endif %}</td>
     </tr>
       {% endif %}
     {% endfor %}
