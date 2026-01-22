@@ -7,9 +7,8 @@ from pathlib import Path
 
 import yaml
 
-from bcbench.agent.copilot.mcp import build_mcp_config
 from bcbench.agent.copilot.metrics import parse_metrics
-from bcbench.agent.copilot.prompt import build_prompt
+from bcbench.agent.shared import build_mcp_config, build_prompt
 from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.exceptions import AgentError, AgentTimeoutError
@@ -27,7 +26,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
     Returns:
         Tuple of (AgentMetrics, ExperimentConfiguration) with metrics and configuration used during the experiment
     """
-    config_file = Path(__file__).parent / "config.yaml"
+    config_file = Path(__file__).parent.parent / "shared" / "config.yaml"
     copilot_config = yaml.safe_load(config_file.read_text())
 
     logger.info(f"Running GitHub Copilot CLI on: {entry.instance_id}")
@@ -55,7 +54,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
             "--log-level=debug",
             "--disable-parallel-tools-execution",
             f"--log-dir={output_dir.resolve()}",
-            f"--prompt={prompt.replace('\r', '').replace('\n', ' ')}",
+            f"-p={prompt.replace('\r', '').replace('\n', ' ')}",
         ]
         if not instructions_enabled:
             cmd_args.append("--no-custom-instructions")
@@ -70,7 +69,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
             cmd_args,
             cwd=str(repo_path),
             stderr=subprocess.PIPE,  # only capture stderr where metrics are printed
-            timeout=_config.timeout.github_copilot_cli,
+            timeout=_config.timeout.agent_execution,
             check=True,
         )
 
@@ -83,15 +82,15 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
         stderr_lines = stderr.splitlines()
 
         # Find the most recent session log for tool usage parsing
-        session_logs = list(output_dir.glob("session-*.log"))
+        session_logs = list(output_dir.glob("process-*.log"))
         session_log_path = max(session_logs, key=lambda p: p.stat().st_mtime) if session_logs else None
 
         metrics = parse_metrics(stderr_lines, session_log_path=session_log_path)
 
         return metrics, config
     except subprocess.TimeoutExpired:
-        logger.error(f"Copilot CLI timed out after {_config.timeout.github_copilot_cli} seconds")
-        metrics = AgentMetrics(execution_time=_config.timeout.github_copilot_cli)
+        logger.error(f"Copilot CLI timed out after {_config.timeout.agent_execution} seconds")
+        metrics = AgentMetrics(execution_time=_config.timeout.agent_execution)
         raise AgentTimeoutError("Copilot CLI timed out", metrics=metrics, config=config) from None
     except subprocess.CalledProcessError as e:
         logger.error(f"Copilot CLI execution failed with error {e.stderr}")

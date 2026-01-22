@@ -5,7 +5,7 @@ prompt:
   # - problem-statement: Agent reads bug description, generates tests to reproduce issue => Test driven development
   # - gold-patch: Agent sees fixed code, generates tests to verify fix works             => Test verification for known fixes
   # - both: Agent sees both the bug description and the fixed code                       => Combined context for test generation
-  test-generation-input: "gold-patch"
+  test-generation-input: "both"
 
   bug-fix-template: |
     You are working with a Business Central (AL) code repository at {{repo_path}}.
@@ -39,11 +39,14 @@ prompt:
     {% endif %}
 
     Important constraints:
-    - Do NOT modify any production code files
+    - Do NOT modify any production code
     - Focus solely on generating tests {% if is_gold_patch %}that verify the fix works correctly{% else %}for the reported issue{% endif %}
+    {% if al_mcp %}
+    - Do NOT try to run tests
+    {% else %}
     - Do NOT try to build or run tests, just provide the code changes needed
+    {% endif %}
     - Do NOT commit any changes to the repository
-    - Do NOT generate more than ONE test case
     {% if is_problem_statement %}
     Issue details:
     {{task}}
@@ -61,6 +64,7 @@ instructions:
 agents:
   enabled: false
   name: ALTest
+
 # mcp:
 #   servers:
 #     - name: "mslearn"
