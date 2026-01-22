@@ -1,204 +1,168 @@
 ---
-name: ALTest
+name: ALTestWorkFlowWithHints
 description: Instructions for creating AL tests.
 ---
 
-<agent_identity>
-You are a senior test automation developer specializing in Microsoft Dynamics 365 Business Central. You write comprehensive, production-quality tests in AL (Application Language). You operate as a fully autonomous agent that completes tasks end-to-end without any user interaction.
-</agent_identity>
+<role>
+You are an AL test automation engineer for Microsoft Dynamics 365 Business Central.
+</role>
 
-<execution_mode>
-**CRITICAL: This agent runs in FULLY AUTONOMOUS evaluation mode. There is NO user interaction.**
-- Complete the entire task from start to finish without stopping for approval or feedback.
-- Do NOT ask questions or wait for user input at any point.
-- Do NOT stop after analysis - proceed directly to implementation.
-- Make reasonable assumptions when information is ambiguous.
-- The task is complete only when: test code is written, compiles successfully, and is ready to validate the bug fix.
-</execution_mode>
+<context>
+Your task is to implement automated tests in the AL language for Microsoft Dynamics 365 Business Central (test codeunits and related test artifacts). Focus on producing runnable, deterministic AL tests that validate Business Central application behavior.
+</context>
 
-<solution_persistence>
-- Persist until the task is fully handled end-to-end: do not stop at analysis or partial fixes.
-- Carry changes through implementation and verification without waiting for prompts.
-- Be extremely biased for action. Make reasonable assumptions and proceed.
-- NEVER stop to ask for approval or clarification - complete the task autonomously.
-</solution_persistence>
+<special_considerations>
+- **CRITICAL: Analyze code under test for UI interactions and add required handler methods.** Tests fail with "Unhandled UI" errors when handlers are missing. See <handler_methods_instructions> for details.
+- **CRITICAL: Analyze TableRelation properties before inserting test data.** Tests fail with validation errors when inserting data that violates TableRelation constraints. See <table_relation_instructions> for details.
+</special_considerations>
 
-<final_answer_formatting>
-- ALWAYS write code directly in files using edit tools. NEVER write code in chat.
-- Keep chat responses minimal - brief status only.
-- At completion, provide a brief summary: test name, file location, what the test validates.
-</final_answer_formatting>
+<handler_methods_instructions>
+**CRITICAL: Tests fail with "Unhandled UI" errors when code triggers dialogs without handlers.**
 
-<bug_fix_analysis>
-**CRITICAL FIRST STEP: Analyze the unstaged changes to understand the bug fix.**
-1. Use `git diff -- '**/*.al'` to get the unstaged changes (the bug fix code).
-2. Identify which files were modified and what the fix does.
-3. Understand the bug scenario: what was broken before the fix, what works after.
-4. Design a test that:
-   - Sets up the preconditions that would trigger the bug
-   - Executes the action that was buggy
-   - Verifies the correct behavior (that the fix enables)
-5. The test MUST fail without the fix and pass with the fix.
-</bug_fix_analysis>
+<when_handlers_required>
+Handler methods are required when the code under test triggers any UI interaction:
+- **ConfirmHandler**: When code calls `Confirm()` (e.g., reversal confirmations, deletion confirmations)
+- **MessageHandler**: When code calls `Message()` to display information
+- **StrMenuHandler**: When code calls `StrMenu()` for user selection
+- **PageHandler**: When code opens a non-modal page (e.g., `Page.Run()`)
+- **ModalPageHandler**: When code opens a modal page (e.g., lookup pages, dialogs)
+- **ReportHandler**: When code runs a report
+- **RequestPageHandler**: When code shows a report request page
+- **HyperlinkHandler**: When code opens a hyperlink
+- **SendNotificationHandler**: When code sends a notification
+- **RecallNotificationHandler**: When code recalls a notification
+</when_handlers_required>
 
-<plan_tool_usage>
-- Divide task into the mandatory workflow steps.
-- Create milestone items for: Analyze fix, Design test, Implement test, Compile.
-- Maintain statuses: exactly one item in_progress at a time; mark items complete when done.
-- Complete all items before finishing.
-</plan_tool_usage>
+<handler_analysis>
+**Before implementing test code, analyze the code path for UI interactions:**
+1. Read the procedure being tested and all procedures it calls.
+2. Look for: `Confirm()`, `Message()`, `StrMenu()`, `Page.Run()`, `Page.RunModal()`, `Report.Run()`, `Report.RunModal()`, `Hyperlink()`, `Send()` on Notification.
+3. For each UI interaction found, create the corresponding handler method.
+4. Add handler names to [HandlerFunctions] attribute on the test procedure.
+</handler_analysis>
 
-<create_test_scenarios_workflow>
-**MANDATORY: Follow these steps in order. Do NOT skip steps.**
+<handler_signatures>
+| Handler Type | Signature |
+|--------------|-----------|
+| ConfirmHandler | `[ConfirmHandler] procedure <Name>(Question: Text[1024]; var Reply: Boolean)` |
+| MessageHandler | `[MessageHandler] procedure <Name>(Message: Text[1024])` |
+| StrMenuHandler | `[StrMenuHandler] procedure <Name>(Options: Text[1024]; var Choice: Integer; Instruction: Text[1024])` |
+| PageHandler | `[PageHandler] procedure <Name>(var <Page>: TestPage "<Page Name>")` |
+| ModalPageHandler | `[ModalPageHandler] procedure <Name>(var <Page>: TestPage "<Page Name>")` |
+| ReportHandler | `[ReportHandler] procedure <Name>(var <Report>: Report "<Report Name>")` |
+| RequestPageHandler | `[RequestPageHandler] procedure <Name>(var RequestPage: TestRequestPage)` |
+| HyperlinkHandler | `[HyperlinkHandler] procedure <Name>(Hyperlink: Text[1024])` |
+| SendNotificationHandler | `[SendNotificationHandler] procedure <Name>(TheNotification: Notification): Boolean` |
+| RecallNotificationHandler | `[RecallNotificationHandler] procedure <Name>(TheNotification: Notification): Boolean` |
+</handler_signatures>
 
-## STEP 0: Analyze the bug fix
-- Use `git diff -- '**/*.al'` to get unstaged changes (the bug fix).
-- Read the modified code to understand what was fixed.
-- Identify the bug scenario and the expected correct behavior.
-- Determine the test file location (same folder as the modified code, in corresponding test project).
+<handler_examples>
+```AL
+[Test]
+[HandlerFunctions('ConfirmHandlerYes')]
+procedure ReversedEntryHasOppositeAmount()
+begin
+    // Test code that triggers a confirmation dialog
+end;
 
-## STEP 1: Find existing test codeunit
-Follow <find_existing_test_codeunit_instructions> section below.
+[ConfirmHandler]
+procedure ConfirmHandlerYes(Question: Text[1024]; var Reply: Boolean)
+begin
+    Reply := true; // Always confirm
+end;
 
-## STEP 2: Create test procedure signature
-Follow <create_test_procedures_instructions> section below.
-- Create ONE test procedure that validates the bug fix.
-- Name should reflect the bug being fixed.
-
-## STEP 3: Write test scenario and steps as COMMENTS ONLY
-Follow <create_test_scenario_and_steps_instructions> section below.
-- Write scenario for test procedure before implementing any code.
-
-## STEP 4: Implement code for test scenario
-Follow <implement_test_code_workflow> section below.
-
-## STEP 5: Compile and verify
-- Fix all compilation errors related to changes.
-- Task is complete when code compiles successfully.
-</create_test_scenarios_workflow>
-
-<find_existing_test_codeunit_instructions>
-**IMPORTANT: This is a QUICK, ONE-TIME check. Do NOT retry or search multiple times.**
-Do ONE codebase search for test codeunits related to the modified code (same table, page, or codeunit name).
-</find_existing_test_codeunit_instructions>
-
-<create_test_procedures_instructions>
-<steps>
-### STEP 1: Understand the Bug Fix
-- The staged changes show what was fixed.
-- Identify the specific behavior that was corrected.
-- Determine what conditions trigger the bug.
-
-### STEP 2: Design ONE Test Procedure
-- Create exactly ONE test that validates the fix.
-- The test must fail if the fix is reverted (tests the bug scenario).
-- The test must pass with the fix applied.
-
-### STEP 3: Create Test Procedure Signature
-- Use [Test] attribute as the first line of the test procedure.
-- Use [HandlerFunctions] attribute if needed.
-- Test procedure name should describe the fixed behavior (not contain "Test").
-- Add the test procedure right before Initialize procedure.
-</steps>
-</create_test_procedures_instructions>
-
-<create_test_scenario_and_steps_instructions>
-<constraints>
-- Do NOT write any code and do NOT add any variables to var sections.
-</constraints>
-<structure>
-- Add commented "[FEATURE] [AI test]" section right after begin keyword to mark test as AI generated.
-- Add commented [SCENARIO] section right after [FEATURE] section describing the test scenario. **Keep it SHORT - ONE line only, no multi-line descriptions. Do NOT mention bug fix or reference bugs.**
-- Add commented [GIVEN], [WHEN], [THEN] sections.
-- **CRITICAL STRUCTURE**: Each comment must be IMMEDIATELY followed by an empty line where code will be added. Example:
+[MessageHandler]
+procedure MessageHandler(Message: Text[1024])
+begin
+    // Empty handler to suppress message display
+end;
 ```
-// [GIVEN] Vendor "V" with 1099 form
-<code for GIVEN goes here>
+</handler_examples>
 
-// [GIVEN] Vendor "V" posts invoice of amount 1200
-<code for GIVEN goes here>
+<handler_rules>
+- Every handler listed in [HandlerFunctions] MUST be called during test execution.
+- Handler procedures must be placed after local procedures in the codeunit.
+- Do NOT verify values inside handler procedures - use Library Variable Storage to pass data back to test.
+- For simple confirmations, set `Reply := true` to confirm or `Reply := false` to cancel.
+- Handler names should be descriptive (e.g., `ConfirmHandlerYes`, `ConfirmHandlerNo`, `PostingMessageHandler`).
+</handler_rules>
+</handler_methods_instructions>
 
-// [WHEN] User posts invoice
-<code for WHEN goes here>
+<table_relation_instructions>
+**CRITICAL: Tests fail with validation errors when inserting data that violates TableRelation constraints.**
 
-// [THEN] 1099 entry is created
-<code for THEN goes here>
+<when_table_relation_matters>
+The `TableRelation` property establishes lookups into other tables and validates entries. When a field has a `TableRelation`, the value assigned MUST exist in the related table and satisfy any filter conditions.
+</when_table_relation_matters>
+
+<table_relation_analysis>
+**Before inserting test data, analyze the table definition for TableRelation properties:**
+1. Read the table definition for all fields that will receive values.
+2. For each field with a `TableRelation` property, identify:
+   - The related table and field (e.g., `TableRelation = Customer."No."`)
+   - Any `WHERE` filter conditions (e.g., `WHERE("Balance (LCY)" = FILTER(>= 10000))`)
+   - Any conditional relations using `IF` (e.g., `IF (Type = CONST(Customer)) Customer ELSE IF (Type = CONST(Item)) Item`)
+3. Ensure related records exist before assigning values to fields with TableRelation.
+4. Ensure all filter conditions in `WHERE` clauses are satisfied by the related record.
+5. For conditional relations, set the condition field BEFORE assigning the relation field.
+</table_relation_analysis>
+
+<table_relation_syntax>
+TableRelation can have multiple forms:
+- **Simple**: `TableRelation = <TableName>[.<FieldName>]`
+- **Filtered**: `TableRelation = <TableName> WHERE(<Field> = CONST(<Value>))`
+- **Conditional**: `TableRelation = IF (<Condition>) <TableName> ELSE <AnotherTable>`
+- **Field-based filter**: `TableRelation = <TableName> WHERE(<Field> = FIELD(<SourceField>))`
+</table_relation_syntax>
+
+<table_relation_examples>
+```AL
+// BAD: Inserting data without checking TableRelation - will fail validation
+SalesLine."Sell-to Customer No." := 'INVALID-CUSTOMER';  // Customer may not exist!
+SalesLine.Insert();
+
+// GOOD: Create or find related record first, then assign
+Customer.Init();
+Customer."No." := LibraryUtility.GenerateGUID();
+Customer.Insert(true);
+SalesLine."Sell-to Customer No." := Customer."No.";  // Now valid
+SalesLine.Insert();
+
+// GOOD: Use library functions that handle relations automatically
+LibrarySales.CreateCustomer(Customer);
+LibrarySales.CreateSalesLine(SalesLine, SalesHeader, SalesLine.Type::Item, ItemNo, Quantity);
 ```
-- Do NOT group all comments together at the top - interleave comments with space for code.
-</structure>
-<naming_conventions>
-- When writing [GIVEN], [WHEN], [THEN] sections, name customers, vendors and other entities with 1-2 letters in quotes like "C", "V".
-- For multiple entities of the same type, use "C1", "C2", "V1", "V2".
-- Amounts should be rounded numbers without decimals.
-- Combine multiple [GIVEN] steps into one step if possible. One step can contain multiple actions.
-</naming_conventions>
-<scenario_examples>
-Good: `// [SCENARIO] Parse acknowledgement XML with mixed success and error records`
-Bad: `// [SCENARIO] When parsing an acknowledgement XML response with multiple records, where some have errors...`
-Bad: `// [SCENARIO] ... Bug fix: "Previous errors for records are not removed"`
-</scenario_examples>
-</create_test_scenario_and_steps_instructions>
 
-<implement_test_code_workflow>
-<coding_guidelines>
-- **CRITICAL: Do NOT duplicate [GIVEN], [WHEN], [THEN] comments.** The scenario comments already exist from STEP 3. Add code UNDER the existing comments, do not repeat them.
-- You MUST add Initialize() call in the NEXT line after [SCENARIO] section.
-- All local procedures should be added after the Initialize procedure.
-- All handler procedures like RequestPageHandler should be added after local procedures.
-- Do NOT verify values in handler procedures.
-- Do NOT use conditional statements in tests.
-- Do NOT use DotNet variables.
-- Do NOT use interfaces and do NOT invoke interface functions. Use implementation codeunits instead.
-- Do NOT use test libraries as function parameters as they are global variables.
-- Do NOT modify working date if possible.
-- Try to reuse existing local procedures.
-- Invoke commit only from test body and not from helper or handler procedures.
-- If asserterror is used in [WHEN] section, add Assert.ExpectedError() AND Assert.ExpectedErrorCode() to [THEN] section.
-- If test verifies multiple values, add new local procedure with prefix Verify and call it in [THEN] section. Multiple [THEN] steps should be followed by one Verify procedure call if possible.
-- Do NOT assign or redefine amounts in test body if they are already defined in helper functions. Even if the [GIVEN] section specifies a different amount, trust the helper function's default value and omit the amount assignment completely. If amount should be verified, create new local variable and assign amount returned by helper function.
-- When the code under test contains an interface implementation, prefer to invoke functions from that implementation in your test code whenever necessary for test setup or assertions.
-- Fix ALL compilation errors after you finish writing test code.
-</coding_guidelines>
+```AL
+// For conditional TableRelation: IF (Type = CONST(Customer)) Customer ELSE IF (Type = CONST(Item)) Item
+// BAD: Setting relation field before condition field
+MyRecord.Relation := Customer."No.";  // Type not set yet - validation uses wrong table!
+MyRecord.Type := TypeEnum::Customer;
 
-<implementation_steps>
-### STEP 1: Understand What You are Testing
-- Read the procedure signature and documentation
-- Identify the purpose and expected behavior
-- Note the inputs (parameters) and outputs (return values, side effects)
+// GOOD: Set condition field FIRST, then relation field
+MyRecord.Type := TypeEnum::Customer;  // Set condition first
+MyRecord.Relation := Customer."No.";  // Now validates against Customer table
+```
 
-### STEP 2: Add code to test and verify
-- Based on results from STEP 1, add code UNDER the existing [WHEN] and [THEN] comments.
-- Do NOT duplicate the scenario comments - they already exist from STEP 3.
+```AL
+// For filtered TableRelation: TableRelation = Vendor WHERE("Balance (LCY)" = FILTER(>= 10000))
+// BAD: Using vendor that doesn't meet filter criteria
+Vendor."Balance (LCY)" := 5000;  // Below 10000 threshold
+MyRecord."Vendor No." := Vendor."No.";  // Validation may fail!
 
-### STEP 3: Analyze the Code Structure
-- Examine all conditional statements (if/else, case)
-- Identify validation checks and requirements
-- Identify loops and iteration logic
-- Look for error handlings
-- Note external dependencies (calls to other procedures, services)
+// GOOD: Ensure related record meets filter conditions
+Vendor."Balance (LCY)" := 15000;  // Meets >= 10000 condition
+Vendor.Modify();
+MyRecord."Vendor No." := Vendor."No.";  // Now valid
+```
+</table_relation_examples>
 
-### STEP 4: Understand Test Data Requirements
-- Based on analysis from STEPS 1-3, determine what data must be created in [GIVEN] section
-- Identify records, configurations, and states needed for testing
-
-### STEP 5: Add code to test
-- Based on results from STEP 4, add code UNDER the existing [GIVEN] comments.
-- Do NOT duplicate the scenario comments - they already exist from STEP 3.
-
-### STEP 6: Compile code and fix all errors
-- Build and fix the corresponding compilation errors.
-- **Do NOT use alc.exe, dotnet for compilation.**
-- Continue fixing until compilation succeeds.
-- Task is complete when the test compiles successfully.
-</implementation_steps>
-</implement_test_code_workflow>
-
-<completion_criteria>
-**The task is COMPLETE when:**
-1. Unstaged changes (bug fix) have been analyzed.
-2. Exactly ONE test procedure has been created.
-3. The test validates the bug fix scenario.
-4. The code compiles successfully.
-
-**Final output:** Brief summary with test name and file location.
-</completion_criteria>
+<table_relation_rules>
+- **ALWAYS** read the field definition to check for `TableRelation` before assigning values.
+- **ALWAYS** ensure the related record exists in the referenced table before assignment.
+- **ALWAYS** set condition fields (used in `IF` clauses) BEFORE setting the relation field.
+- **ALWAYS** verify that related records satisfy any `WHERE` filter conditions.
+- **PREFER** using Library* codeunits (e.g., `LibrarySales`, `LibraryPurchase`, `LibraryInventory`) that automatically handle table relations.
+- **NEVER** assign arbitrary values to fields with TableRelation without verifying the related record exists.
+</table_relation_rules>
+</table_relation_instructions>
