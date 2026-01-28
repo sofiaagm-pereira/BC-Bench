@@ -19,6 +19,7 @@ This category "reverses" the SWE-Bench workflow: instead of generating a fix, th
       <th>pass^3</th>
       <th>pass^5</th>
       <th>Avg Duration (s)</th>
+      <th>Version</th>
     </tr>
   </thead>
   <tbody>
@@ -32,6 +33,7 @@ This category "reverses" the SWE-Bench workflow: instead of generating a fix, th
       <td>{% if agg.pass_hat_3 %}{{ agg.pass_hat_3 | times: 100.0 | round: 1 }}%{% endif %}</td>
       <td>{% if agg.pass_hat_5 %}{{ agg.pass_hat_5 | times: 100.0 | round: 1 }}%{% endif %}</td>
       <td>{% if agg.average_duration %}{{ agg.average_duration | round: 1 }}{% endif %}</td>
+      <td>{% if agg.benchmark_version %}{{ agg.benchmark_version }}{% endif %}</td>
     </tr>
       {% endif %}
     {% endfor %}
