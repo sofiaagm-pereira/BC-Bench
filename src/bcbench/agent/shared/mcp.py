@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from copilot import MCPLocalServerConfig, MCPRemoteServerConfig, MCPServerConfig
 from jinja2 import Template
 
 from bcbench.dataset import DatasetEntry
@@ -39,27 +40,27 @@ class _ALMcpServerManager:
 _mcp_server_manager = _ALMcpServerManager()
 
 
-def _build_server_entry(server: dict[str, Any], template_context: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+def _build_server_entry(server: dict[str, Any], template_context: dict[str, Any]) -> tuple[str, dict[str, MCPServerConfig]]:
     server_type: str = server["type"]
     server_name: str = server["name"]
     tools: list[str] = server["tools"]
 
     match server_type:
         case "http":
-            return server_name, {
-                "type": server_type,
-                "url": server["url"],
-                "tools": tools,
-            }
+            return server_name, MCPRemoteServerConfig(
+                tools=tools,
+                url=server["url"],
+                type=server_type
+            )
         case "local":
             args: list[str] = server["args"]
             rendered_args = [Template(arg).render(**template_context) for arg in args]
-            return server_name, {
-                "type": server_type,
-                "command": server["command"],
-                "args": rendered_args,
-                "tools": tools,
-            }
+            return server_name, MCPLocalServerConfig(
+                tools=tools,
+                command=server["command"],
+                args=rendered_args,
+                type=server_type,
+            )
         case _:
             logger.error(f"Unsupported MCP server type: {server_type}, {server}")
             raise AgentError(f"Unsupported MCP server type: {server_type}")

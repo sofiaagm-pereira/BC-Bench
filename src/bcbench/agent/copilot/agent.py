@@ -1,11 +1,17 @@
 """GitHub Copilot CLI Agent implementation."""
 
+import asyncio
+import json
+import random
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 import yaml
+from copilot import CopilotClient, MCPServerConfig
+from copilot.generated.session_events import SessionEventType
 
 from bcbench.agent.copilot.metrics import parse_metrics
 from bcbench.agent.shared import build_mcp_config, build_prompt
@@ -65,29 +71,68 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
 
         logger.debug(f"Copilot command args: {cmd_args}")
 
-        result = subprocess.run(
-            cmd_args,
-            cwd=str(repo_path),
-            stderr=subprocess.PIPE,  # only capture stderr where metrics are printed
-            timeout=_config.timeout.agent_execution,
-            check=True,
-        )
+        # Copilot SDK
+        async def run_copilot():
+            client = CopilotClient({"cli_path": copilot_cmd})
+            await client.start()
 
-        if result.stderr:
-            sys.stdout.buffer.write(result.stderr)
-            sys.stdout.buffer.flush()
-        logger.info(f"Copilot CLI run complete for: {entry.instance_id}")
+            if mcp_config_json:
+                raw = json.loads(mcp_config_json)
+                raw_servers = raw.get("mcpServers", {})
+            else:
+                raw_servers = {}
 
-        stderr = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
-        stderr_lines = stderr.splitlines()
+            mcp_servers = cast(dict[str, MCPServerConfig], raw_servers or {})
 
-        # Find the most recent session log for tool usage parsing
-        session_logs = list(output_dir.glob("process-*.log"))
-        session_log_path = max(session_logs, key=lambda p: p.stat().st_mtime) if session_logs else None
+            session = await client.create_session(
+                {
+                    "model": model,
+                    "mcp_servers": mcp_servers,
+                    "streaming": True,
+                }
+            )
 
-        metrics = parse_metrics(stderr_lines, session_log_path=session_log_path)
+            # Listen for response chunks
+            def handle_event(event):
+                if event.type == SessionEventType.ASSISTANT_MESSAGE_DELTA:
+                    sys.stdout.write(event.data.delta_content)
+                    sys.stdout.flush()
 
-        return metrics, config
+            session.on(handle_event)
+
+            response = await session.send_and_wait(
+                {"prompt": prompt},
+                timeout=_config.timeout.agent_execution,
+            )
+            print()  # newline after streaming
+
+            await client.stop()
+
+        asyncio.run(run_copilot())
+
+        # result = subprocess.run(
+        #     cmd_args,
+        #     cwd=str(repo_path),
+        #     stderr=subprocess.PIPE,  # only capture stderr where metrics are printed
+        #     timeout=_config.timeout.agent_execution,
+        #     check=True,
+        # )
+
+        # if result.stderr:
+        #     sys.stdout.buffer.write(result.stderr)
+        #     sys.stdout.buffer.flush()
+        # logger.info(f"Copilot CLI run complete for: {entry.instance_id}")
+
+        # stderr = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
+        # stderr_lines = stderr.splitlines()
+
+        # # Find the most recent session log for tool usage parsing
+        # session_logs = list(output_dir.glob("process-*.log"))
+        # session_log_path = max(session_logs, key=lambda p: p.stat().st_mtime) if session_logs else None
+
+        # metrics = parse_metrics(stderr_lines, session_log_path=session_log_path)
+
+        return None, config
     except subprocess.TimeoutExpired:
         logger.error(f"Copilot CLI timed out after {_config.timeout.agent_execution} seconds")
         metrics = AgentMetrics(execution_time=_config.timeout.agent_execution)
