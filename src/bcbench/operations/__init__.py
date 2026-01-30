@@ -14,7 +14,7 @@ from bcbench.operations.git_operations import (
     clean_repo,
     stage_and_get_diff,
 )
-from bcbench.operations.instruction_operations import copy_problem_statement_folder, setup_custom_agent, setup_instructions_from_config
+from bcbench.operations.instruction_operations import copy_problem_statement_folder, setup_copilot_skills, setup_custom_agent, setup_instructions_from_config
 from bcbench.operations.project_operations import categorize_projects
 from bcbench.operations.setup_operations import setup_repo_postbuild, setup_repo_prebuild
 from bcbench.operations.test_operations import extract_tests_from_patch
