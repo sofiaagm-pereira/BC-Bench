@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import random
 import shutil
 import subprocess
 import sys
@@ -100,7 +99,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
 
             session.on(handle_event)
 
-            response = await session.send_and_wait(
+            await session.send_and_wait(
                 {"prompt": prompt},
                 timeout=_config.timeout.agent_execution,
             )
@@ -110,29 +109,29 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
 
         asyncio.run(run_copilot())
 
-        # result = subprocess.run(
-        #     cmd_args,
-        #     cwd=str(repo_path),
-        #     stderr=subprocess.PIPE,  # only capture stderr where metrics are printed
-        #     timeout=_config.timeout.agent_execution,
-        #     check=True,
-        # )
+        result = subprocess.run(
+            cmd_args,
+            cwd=str(repo_path),
+            stderr=subprocess.PIPE,  # only capture stderr where metrics are printed
+            timeout=_config.timeout.agent_execution,
+            check=True,
+        )
 
-        # if result.stderr:
-        #     sys.stdout.buffer.write(result.stderr)
-        #     sys.stdout.buffer.flush()
-        # logger.info(f"Copilot CLI run complete for: {entry.instance_id}")
+        if result.stderr:
+            sys.stdout.buffer.write(result.stderr)
+            sys.stdout.buffer.flush()
+        logger.info(f"Copilot CLI run complete for: {entry.instance_id}")
 
-        # stderr = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
-        # stderr_lines = stderr.splitlines()
+        stderr = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
+        stderr_lines = stderr.splitlines()
 
-        # # Find the most recent session log for tool usage parsing
-        # session_logs = list(output_dir.glob("process-*.log"))
-        # session_log_path = max(session_logs, key=lambda p: p.stat().st_mtime) if session_logs else None
+        # Find the most recent session log for tool usage parsing
+        session_logs = list(output_dir.glob("process-*.log"))
+        session_log_path = max(session_logs, key=lambda p: p.stat().st_mtime) if session_logs else None
 
-        # metrics = parse_metrics(stderr_lines, session_log_path=session_log_path)
+        metrics = parse_metrics(stderr_lines, session_log_path=session_log_path)
 
-        return None, config
+        return metrics, config
     except subprocess.TimeoutExpired:
         logger.error(f"Copilot CLI timed out after {_config.timeout.agent_execution} seconds")
         metrics = AgentMetrics(execution_time=_config.timeout.agent_execution)
