@@ -1,12 +1,10 @@
 """GitHub Copilot CLI Agent implementation."""
 
 import asyncio
-import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import cast
 
 import yaml
 from copilot import CopilotClient, MCPServerConfig, SessionConfig
