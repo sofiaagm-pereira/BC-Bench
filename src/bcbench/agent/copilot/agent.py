@@ -16,7 +16,7 @@ from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.exceptions import AgentError, AgentTimeoutError
 from bcbench.logger import get_logger
-from bcbench.operations import setup_custom_agent, setup_instructions_from_config, setup_copilot_skills
+from bcbench.operations import setup_copilot_skills, setup_custom_agent, setup_instructions_from_config
 from bcbench.types import AgentMetrics, EvaluationCategory, ExperimentConfiguration
 
 logger = get_logger(__name__)
@@ -62,6 +62,8 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
         ]
         if not instructions_enabled:
             cmd_args.append("--no-custom-instructions")
+        if copilot_skills:
+            cmd_args.append(f"--skills-dir={copilot_skills}")
         if custom_agent:
             cmd_args.append(f"--agent={custom_agent}")
 

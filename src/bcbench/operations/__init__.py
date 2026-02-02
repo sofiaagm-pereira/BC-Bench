@@ -32,6 +32,7 @@ __all__ = [
     "copy_problem_statement_folder",
     "extract_tests_from_patch",
     "run_tests",
+    "setup_copilot_skills",
     "setup_custom_agent",
     "setup_instructions_from_config",
     "setup_repo_postbuild",
