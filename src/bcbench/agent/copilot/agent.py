@@ -16,7 +16,8 @@ from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
 from bcbench.exceptions import AgentError, AgentTimeoutError
 from bcbench.logger import get_logger
-from bcbench.operations import setup_copilot_skills, setup_custom_agent, setup_instructions_from_config
+from bcbench.operations import setup_custom_agent, setup_instructions_from_config
+from bcbench.operations.skills_operations import setup_copilot_skills
 from bcbench.types import AgentMetrics, EvaluationCategory, ExperimentConfiguration
 
 logger = get_logger(__name__)
@@ -37,7 +38,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
     prompt: str = build_prompt(entry, repo_path, copilot_config, category, al_mcp=al_mcp)
     mcp_config: dict[str, MCPServerConfig] | None = build_mcp_config(copilot_config, entry, repo_path, al_mcp=al_mcp)
     instructions_enabled: bool = setup_instructions_from_config(copilot_config, entry, repo_path)
-    copilot_skills: str | None = setup_copilot_skills(copilot_config, entry, repo_path)
+    copilot_skills: list[str] | None = setup_copilot_skills(copilot_config, entry, repo_path)
     custom_agent: str | None = setup_custom_agent(copilot_config, entry, repo_path)
     config = ExperimentConfiguration(mcp_servers=list(mcp_config.keys()) if mcp_config else None, custom_instructions=instructions_enabled, custom_agent=custom_agent)
 
@@ -62,8 +63,6 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
         ]
         if not instructions_enabled:
             cmd_args.append("--no-custom-instructions")
-        if copilot_skills:
-            cmd_args.append(f"--skills-dir={copilot_skills}")
         if custom_agent:
             cmd_args.append(f"--agent={custom_agent}")
 
@@ -79,6 +78,7 @@ def run_copilot_agent(entry: DatasetEntry, model: str, category: EvaluationCateg
                     model=model,
                     mcp_servers=mcp_config if mcp_config else {},
                     streaming=True,
+                    skill_directories=copilot_skills if copilot_skills else [],
                 )
             )
 

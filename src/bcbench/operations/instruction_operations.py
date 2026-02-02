@@ -37,32 +37,6 @@ def setup_instructions_from_config(copilot_config: dict, entry: DatasetEntry, re
     return instructions_enabled
 
 
-def setup_copilot_skills(copilot_config: dict, entry: DatasetEntry, repo_path: Path) -> str | None:
-    """
-    Setup skills in the repository if available.
-    """
-    skills_config: dict = copilot_config["skills"]
-    skills_enabled: bool = skills_config["enabled"]
-
-    if skills_enabled:
-        source_skills: Path = _get_source_instructions_path(entry.repo)
-        source_skills_dir = source_skills / "skills"
-
-        # Skip if skills folder doesn't exist for this repo
-        if not source_skills_dir.exists():
-            logger.info(f"No skills folder found at {source_skills_dir}, skipping")
-            return None
-
-        github_dir: Path = repo_path / ".github"
-        skills_dir = github_dir / "skills"
-        copytree(source_skills_dir, skills_dir, dirs_exist_ok=True)
-
-        logger.info(f"Skills are set up from {source_skills_dir}")
-        return skills_config.get("name")
-
-    return None
-
-
 def setup_custom_agent(copilot_config: dict, entry: DatasetEntry, repo_path: Path) -> str | None:
     """
     Setup custom agents in the repository if available.
