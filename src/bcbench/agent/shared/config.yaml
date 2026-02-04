@@ -66,9 +66,7 @@ prompt:
     - Do NOT try to build or run tests
 
     CRITICAL OUTPUT REQUIREMENT:
-    After completing the analysis, you MUST produce a comprehensive JSON output containing all workflow step results.
-    The JSON must be wrapped in a markdown code fence with the 'json' language identifier.
-    See step7-labels-comments.md for the required JSON structure.
+    After completing the analysis, you MUST produce a comprehensive JSON output.
 
 # controls:
 # 1. whether to copy custom instructions (`src/bcbench/agent/copilot/instructions/<sanitized-repo>/`) into the repo
