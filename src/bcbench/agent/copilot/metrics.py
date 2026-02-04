@@ -155,13 +155,30 @@ def parse_metrics_ext(output_lines: Sequence[str], session_log_path: Path | None
     output_text = "".join(output_lines)
 
     try:
+        # First, try to find JSON in stderr output
         json_match = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", output_text)
         if json_match:
             json_str = json_match.group(1)
             try:
                 json_output = json.loads(json_str)
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to decode JSON metrics: {e}")
+                logger.error(f"Failed to decode JSON from stderr: {e}")
+
+        # If not found in stderr and we have a session log, search there
+        if json_output is None and session_log_path and session_log_path.exists():
+            try:
+                session_content = session_log_path.read_text(encoding="utf-8")
+                # Look for JSON in the session log content (often in assistant messages)
+                json_match = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", session_content)
+                if json_match:
+                    json_str = json_match.group(1)
+                    try:
+                        json_output = json.loads(json_str)
+                        logger.debug(f"Found JSON output in session log: {session_log_path}")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to decode JSON from session log: {e}")
+            except Exception as e:
+                logger.warning(f"Failed to read session log for JSON extraction: {e}")
     except Exception as e:
         logger.warning(f"Failed to parse JSON output: {e}")
 
