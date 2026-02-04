@@ -1,14 +1,14 @@
 # Labels & Comments
 
-**Purpose:** Finalize issue by applying labels, posting comments, and closing if needed.
+**Purpose:** Finalize processing by providing a proper labels, comments, and state.
 
 **Rule:** All comments must be generated using templates from `comment-templates/comment_templates.yaml` corresponding to the situation.
 
-**Output Format:** Return a JSON object with the following structure:
+**Output Format:** **MUST** Return a JSON object (Final_Output) with the following structure:
 ```json
 {
   "labels_to_apply": ["label1", "label2"],
-  "comment_to_post": "Generated comment text using template",
+  "comment_to_post": "Generated comment text using template, with a proper explanation",
   "state_of_issue": "open" or "closed"
 }
 ```
@@ -49,7 +49,7 @@
 - **Comment:** "Closing due to inactivity."
 - **Status:** **Close** (Reason: not planned).
 
-## 3. Output Requirements
-1. **Labels Array:** List only the labels to be added/set. If transitioning from one state to another (e.g., from `missing-info` to feasible), include only the final labels (stale labels will be removed automatically).
-2. **Comment Text:** Generate using templates from `comment-templates/comment_templates.yaml`. Select the template matching the request type and outcome (e.g., `approved_event_request` for feasible requests).
-3. **State:** Set to `"open"` or `"closed"` based on the decision logic above (closed for outcomes D, E, F).
+## 3. Output Requirements (Mandatory to generete and log a JSON format output Final_Output)
+1. **labels_to_apply:** List only the labels to be added/set. If transitioning from one state to another (e.g., from `missing-info` to feasible), include only the final labels (stale labels will be removed automatically).
+2. **comment_to_post:** Generate using templates from `comment-templates/comment_templates.yaml`. Select the template matching the request type and outcome (e.g., `approved_event_request` for feasible requests). Always generet comment even there is no proper template to use.
+3. **state_of_issue:** Set to `"open"` or `"closed"` based on the decision logic above (closed for outcomes D, E, F).

@@ -20,7 +20,7 @@ Both checks are **required** and must pass. Before processing, verify:
 
 ## 4. Format input data as GH_REQUEST (json object):
 {
-  "number": int,
+  "number": int (number from instance_id),
   "title": string,
   "description": string,
   "type": string (default is Task),
