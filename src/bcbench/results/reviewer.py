@@ -16,6 +16,17 @@ from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Label, Static
 
+from bcbench.types import EvaluationCategory
+
+
+def _get_patch_field(category: EvaluationCategory) -> str:
+    return "patch" if category == EvaluationCategory.BUG_FIX else "test_patch"
+
+
+def _get_expected_panel_title(category: EvaluationCategory) -> str:
+    return "Expected (Gold)" if category == EvaluationCategory.BUG_FIX else "Expected (Test Patch)"
+
+
 # Failure categories (name, description)
 FAILURE_CATEGORIES = [
     ("Wrong Solution", "Incorrect approach/logic"),
@@ -24,6 +35,7 @@ FAILURE_CATEGORIES = [
     ("Missing Using", "Missing using statement for namespace"),
     ("Timeout", "Agent timed out and made no changes"),
     ("Other", "Doesn't fit above"),
+    ("Flag For Review", "Needs further review"),
 ]
 
 
@@ -52,12 +64,14 @@ class BaseReviewer(App):
         Binding("4", "select_category(3)", "Missing Using"),
         Binding("5", "select_category(4)", "Timeout"),
         Binding("6", "select_category(5)", "Other"),
+        Binding("7", "select_category(6)", "Flag For Review"),
         Binding("escape", "quit", "Quit"),
     ]
 
-    def __init__(self, dataset_path: Path):
+    def __init__(self, dataset_path: Path, category: EvaluationCategory = EvaluationCategory.BUG_FIX):
         super().__init__()
         self.dataset_path = dataset_path
+        self.category = category
         self.current_index = 0
 
     def compose(self) -> ComposeResult:
@@ -119,7 +133,7 @@ class BaseReviewer(App):
 
         exp_panel = self.query_one("#expected-panel", VerticalScroll)
         act_panel = self.query_one("#actual-panel", VerticalScroll)
-        exp_panel.border_title = "Expected (Gold)"
+        exp_panel.border_title = _get_expected_panel_title(self.category)
         act_panel.border_title = self._get_actual_panel_title()
         self.query_one("#expected-content", Static).update(self._format_diff(expected))
         self.query_one("#actual-content", Static).update(self._format_diff(actual))
@@ -189,8 +203,8 @@ class InstanceAcrossRunsReviewer(BaseReviewer):
 
     TITLE = "Instance Across Runs Review"
 
-    def __init__(self, results_dir: Path, instance_id: str, dataset_path: Path):
-        super().__init__(dataset_path)
+    def __init__(self, results_dir: Path, instance_id: str, dataset_path: Path, category: EvaluationCategory = EvaluationCategory.BUG_FIX):
+        super().__init__(dataset_path, category)
         self.results_dir = results_dir
         self.instance_id = instance_id
         self.run_results: list[tuple[str, dict, Path]] = []  # (run_id, result_dict, file_path)
@@ -202,7 +216,7 @@ class InstanceAcrossRunsReviewer(BaseReviewer):
                 if line.strip():
                     entry = json.loads(line)
                     if entry["instance_id"] == self.instance_id:
-                        self.expected_patch = entry.get("patch", "")
+                        self.expected_patch = entry.get(_get_patch_field(self.category), "")
                         break
 
         for jsonl_file in sorted(self.results_dir.glob("*.jsonl")):
@@ -279,26 +293,38 @@ class FailureModeAnalysis(BaseReviewer):
 
     TITLE = "Failure Mode Analysis"
 
-    def __init__(self, results_path: Path, dataset_path: Path):
-        super().__init__(dataset_path)
+    def __init__(self, results_path: Path, dataset_path: Path, category: EvaluationCategory = EvaluationCategory.BUG_FIX, include_resolved: bool = False):
+        super().__init__(dataset_path, category)
         self.results_path = results_path
         self.results: list[dict] = []
         self.unresolved_indices: list[int] = []
         self.dataset_lookup: dict[str, str] = {}
+        self.include_resolved = include_resolved
 
     def _load_data(self) -> None:
+        # Build dataset lookup and track order
+        dataset_order: dict[str, int] = {}
         with open(self.dataset_path, encoding="utf-8") as f:
-            for line in f:
+            for idx, line in enumerate(f):
                 if line.strip():
                     entry = json.loads(line)
-                    self.dataset_lookup[entry["instance_id"]] = entry.get("patch", "")
+                    instance_id = entry["instance_id"]
+                    self.dataset_lookup[instance_id] = entry.get(_get_patch_field(self.category), "")
+                    dataset_order[instance_id] = idx
 
         with open(self.results_path, encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     self.results.append(json.loads(line))
 
-        self.unresolved_indices = [i for i, r in enumerate(self.results) if not r.get("resolved", False) and r.get("scores", {}).get("ResolutionRate", 0) == 0]
+        if self.include_resolved:
+            # Sort indices by dataset order to match dataset review iteration
+            self.unresolved_indices = sorted(
+                range(len(self.results)),
+                key=lambda i: dataset_order.get(self.results[i].get("instance_id") or self.results[i].get("InstanceID", ""), float("inf")),
+            )
+        else:
+            self.unresolved_indices = [i for i, r in enumerate(self.results) if not r.get("resolved", False) and r.get("scores", {}).get("ResolutionRate", 0) == 0]
 
     def _get_current_result(self) -> dict | None:
         if not self.unresolved_indices or self.current_index >= len(self.unresolved_indices):
@@ -318,7 +344,7 @@ class FailureModeAnalysis(BaseReviewer):
         return "Actual (Agent)"
 
     def _get_empty_message(self) -> str:
-        return "No unresolved results"
+        return "No results to review" if self.include_resolved else "No unresolved results"
 
     def _get_item_count(self) -> int:
         return len(self.unresolved_indices)
@@ -330,11 +356,11 @@ class FailureModeAnalysis(BaseReviewer):
         InstanceAcrossRunsReviewer._write_results(self.results_path, self.results)
 
 
-def run_reviewer(results_path: Path, dataset_path: Path) -> None:
-    app = FailureModeAnalysis(results_path, dataset_path)
+def run_reviewer(results_path: Path, dataset_path: Path, category: EvaluationCategory = EvaluationCategory.BUG_FIX, include_resolved: bool = False) -> None:
+    app = FailureModeAnalysis(results_path, dataset_path, category, include_resolved)
     app.run()
 
 
-def run_instance_reviewer(results_dir: Path, instance_id: str, dataset_path: Path) -> None:
-    app = InstanceAcrossRunsReviewer(results_dir, instance_id, dataset_path)
+def run_instance_reviewer(results_dir: Path, instance_id: str, dataset_path: Path, category: EvaluationCategory = EvaluationCategory.BUG_FIX) -> None:
+    app = InstanceAcrossRunsReviewer(results_dir, instance_id, dataset_path, category)
     app.run()

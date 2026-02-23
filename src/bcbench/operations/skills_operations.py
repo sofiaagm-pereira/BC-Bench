@@ -2,23 +2,23 @@ from pathlib import Path
 from shutil import copytree
 
 from bcbench.config import get_config
+from shutil import copytree, rmtree
+
 from bcbench.dataset.dataset_entry import DatasetEntry
 from bcbench.logger import get_logger
 from bcbench.operations.instruction_operations import _get_source_instructions_path
 
 logger = get_logger(__name__)
-_config = get_config()
 
 
-def setup_copilot_skills(copilot_config: dict, entry: DatasetEntry, repo_path: Path) -> list[str] | None:
+def setup_agent_skills(agent_config: dict, entry: DatasetEntry, repo_path: Path) -> bool:
     """
     Setup skills in the repository if available.
 
     Returns:
-        List of skill directory paths if skills are enabled and exist, None otherwise.
+        True if skills were copied, False if skills are disabled.
     """
-    skills_config: dict = copilot_config["skills"]
-    skills_enabled: bool = skills_config["enabled"]
+    skills_enabled: bool = agent_config["skills"]["enabled"]
 
     if skills_enabled:
         source_skills: Path = _get_source_instructions_path(entry.repo)
@@ -26,18 +26,16 @@ def setup_copilot_skills(copilot_config: dict, entry: DatasetEntry, repo_path: P
 
         # Skip if skills folder doesn't exist for this repo
         if not source_skills_dir.exists():
-            logger.info(f"No skills folder found at {source_skills_dir}, skipping")
-            return None
+            raise FileNotFoundError(f"Skills folder not found for repository: {entry.repo} at {source_skills_dir}")
 
         github_dir: Path = repo_path / ".github"
         skills_dir = github_dir / "skills"
-        copytree(source_skills_dir, skills_dir, dirs_exist_ok=True)
+
+        # Remove existing skills directory to ensure clean state
+        if skills_dir.exists():
+            rmtree(skills_dir)
+
+        copytree(source_skills_dir, skills_dir)
 
         logger.info(f"Skills copied from {source_skills_dir} to {skills_dir}")
-        return [str(skills_dir)]
-
-    return None
-
-
-
-
+    return skills_enabled

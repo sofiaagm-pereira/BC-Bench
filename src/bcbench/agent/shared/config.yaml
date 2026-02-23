@@ -21,6 +21,7 @@ prompt:
     - Do NOT try to build or run tests, just provide the code changes needed
     {% endif %}
     - Do NOT commit any changes to the repository
+    - Focus on W1 localization, do NOT worry about other localiations (e.g. DK, APAC)
 
     Issue details:
     {{task}}
@@ -47,6 +48,7 @@ prompt:
     - Do NOT try to build or run tests, just provide the code changes needed
     {% endif %}
     - Do NOT commit any changes to the repository
+    - Focus on W1 localization, do NOT worry about other localiations (e.g. DK, APAC)
     {% if is_problem_statement %}
     Issue details:
     {{task}}
@@ -60,11 +62,9 @@ instructions:
 
 # controls:
 # 1. whether to copy skills (`src/bcbench/agent/copilot/instructions/<sanitized-repo>/skills/`) into repo/.github/skills/
-# 2. SDK passes skill_directories to SessionConfig; CLI auto-discovers from .github/skills/
+# 2. CLI auto-discovers from repo/.github/skills/
 skills:
-  enabled: true
-  # name is for documentation only - all skills in the skills/ folder are loaded
-  name: al-test-generation
+  enabled: false
 
 # controls:
 # 1. whether to copy custom agents (`src/bcbench/agent/copilot/instructions/<sanitized-repo>/agents/`) into the repo
