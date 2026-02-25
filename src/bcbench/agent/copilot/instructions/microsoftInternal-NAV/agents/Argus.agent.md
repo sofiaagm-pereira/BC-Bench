@@ -30,7 +30,7 @@ Execute ALL the following steps (1-7) sequentially.
 
 5. **Step 5: Codebase Analysis**
    Use the view tool to read `.github/instructions/Argus/step5-codebase-analysis.md` and follow all instructions using `GH_REQUEST`, `TYPE`, and `SUBTYPE`.
-   - **CRITICAL for codebase search**: Use targeted `grep` patterns on `.al` files (e.g. `grep("codeunit 5880", "**/*.al")` or `grep("Phys. Invt. Order-Finish", "**/*.al")`). Do NOT use broad glob patterns like `**/*.al` as they return thousands of files.
+   - **CRITICAL for codebase search**: Find files by filename glob first (e.g. `glob("**/RecurringJobJnl.Page.al")` or `glob("**/W1/**/*RecurringJobJnl*.al")`). AL files follow `CamelCaseName.ObjectType.al` naming. Only if glob fails, use a single targeted grep by object name (NOT numeric ID). Never use `type="al"`, bare `**/*.al`, or search by numeric ID (e.g. "page 289") — these scan the entire codebase and cause severe performance issues.
    - Produce output: `{"Success": boolean, "OBJECT_LIST": array, "SUGGESTED_IMPLEMENTATION": string, "FailureLabel": string, "FailureReason": string}`
    - Store `OBJECT_LIST` and `SUGGESTED_IMPLEMENTATION` for use in later steps.
    - If `Success` is `false`: proceed directly to step 7.

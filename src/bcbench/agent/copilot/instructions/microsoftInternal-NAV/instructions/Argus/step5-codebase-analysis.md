@@ -10,10 +10,14 @@
     - **Action:** Generate `ObjectList` (only objects where changes are required).
 
 3.  **Locate Code:** For each object in `ObjectList`:
-    - Find the object in the codebase using `grep` to search `.al` files by object name or ID. Use targeted patterns such as the object name or numeric ID — **do NOT use broad glob patterns like `**/*.al`**.
-        - Example: `grep("codeunit 5880", "**/*.al")` or `grep("Phys. Invt. Order-Finish", "**/*.al")`
-        - **Priority:** Search in the W1 layer first (even if another layer is mentioned in the request); if not found, search in other locations.
-        - **Failure Condition:** If not found, return `agent-not-processable`.
+    - Find the object in the codebase using a **glob by filename first** (fastest, does not read file content):
+        - AL files follow the naming convention `CamelCaseName.ObjectType.al`. Derive the filename from the object name.
+        - Example: Page "Recurring Job Jnl." → `glob("**/RecurringJobJnl.Page.al")` or `glob("**/RecurringJobJnl*.al")`
+        - Example: Codeunit "Phys. Invt. Order-Finish" → `glob("**/PhysInvtOrderFinish*.al")` or `glob("**/*PhysInvt*Order*Finish*.al")`
+        - **Priority:** Search in the W1 layer first: `glob("**/W1/**/*RecurringJobJnl*.al")`.
+        - **Only if glob yields no result**, fall back to a single targeted grep by object name (NOT by numeric ID): `grep("Recurring Job Jnl", "**/W1/**/*.al")`.
+        - **CRITICAL: Do NOT search by numeric ID** (e.g. do NOT grep for "page 289"). Do NOT use `type="al"` or bare `**/*.al` glob patterns — they scan the entire codebase and are extremely slow.
+        - **Failure Condition:** If not found after glob + one targeted grep, return `agent-not-processable`.
     - **Verify Target:** Confirm procedure/trigger logic.
         - **Trigger missing?** Create new (Allowed).
         - **Procedure missing?** Return `missing-info`.
