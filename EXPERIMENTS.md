@@ -25,7 +25,7 @@ By default, Copilot CLI runs with `--no-custom-instructions` and no MCP Servers 
 
 Steps for an experiment:
 1. Create a new branch: `git checkout -b experiment/<meaningful-name>`
-2. Edit `src/bcbench/agent/copilot/config.yaml` and optionally modify instruction markdown under `src/bcbench/agent/copilot/instructions/<sanitized-repo>/` (see below)
+2. Edit `src/bcbench/agent/shared/config.yaml` and optionally modify instruction markdown under `src/bcbench/agent/copilot/instructions/<sanitized-repo>/` (see below)
 3. Locally run one entry: `uv run bcbench run copilot <entry_id>` to ensure everything is setup correctly
 4. Create a draft PR (the default template will let you switch to the experiment template)
 5. In GitHub Actions: run workflow `copilot-evaluation` after selecting your branch & model
@@ -36,7 +36,7 @@ Steps for an experiment:
 
 ### MCP Servers
 
-Uncomment the `mcp:` section in [config.yaml](src/bcbench/agent/copilot/config.yaml), and replace the example MCP Servers with yours:
+Uncomment the `mcp:` section in [config.yaml](src/bcbench/agent/shared/config.yaml), and replace the example MCP Servers with yours:
 
 ```yaml
 mcp:
@@ -49,7 +49,7 @@ mcp:
 
 ### Custom Instructions
 
-Enable instruction in the [config.yaml](src/bcbench/agent/copilot/config.yaml):
+Enable instruction in the [config.yaml](src/bcbench/agent/shared/config.yaml):
 
 ```yaml
 instructions:
@@ -69,11 +69,33 @@ src/bcbench/agent/copilot/instructions/microsoftInternal-NAV/
 How it works (take `NAV` repo as example):
 1. Repo name (`microsoftInternal/NAV`) is sanitized to `microsoftInternal-NAV`
 2. All files under `microsoftInternal-NAV` will be copied into `NAV/.github/` (overwrite if exists)
-3. If `enabled: false` a `--no-custom-instructions` flag is passed instead.
+3. If `enabled: false`, a `--no-custom-instructions` flag is passed instead.
+
+### Skills
+
+Enable skills in the [config.yaml](src/bcbench/agent/shared/config.yaml):
+
+```yaml
+skills:
+  enabled: true
+```
+
+Replace the folder and files below with your skills:
+```
+src/bcbench/agent/copilot/instructions/microsoftInternal-NAV/
+  skills/
+    al-test-generation/
+      SKILL.md
+```
+
+How it works (take `NAV` repo as example):
+1. Repo name (`microsoftInternal/NAV`) is sanitized to `microsoftInternal-NAV`
+2. The `skills/` folder is copied to `NAV/.github/skills/` (replaces existing skills directory)
+3. If `enabled: false`, skills are simply not copied (Copilot auto-discovers from `.github/skills/`)
 
 ### Custom Agents
 
-Enable instruction in the [config.yaml](src/bcbench/agent/copilot/config.yaml):
+Enable instruction in the [config.yaml](src/bcbench/agent/shared/config.yaml):
 
 ```yaml
 # controls:
@@ -91,3 +113,15 @@ You can find all results in the GitHub Action (workflow: `copilot-evaluation`) d
 - Artifacts:
   - per-entry result JSONL (with all metrics)
   - Copilot CLI logs
+
+## Frequently Asked Questions
+
+### What if some jobs fail?
+
+It is normal to have some instabilities, inspect the failure messages to determine if it's indeed an instability. If so, simply re-queue the failed jobs; if not, implement the fix and you will have to trigger a brand new run afterwards.
+
+### My runs have successfully finished, what now?
+
+If you would like to display your results on the GitHub Page, you should be able to find a newly created branch as a result of the workflow run. Use that branch to create a Pull Request and make sure everything is correct, merge that Pull Request and you should be able to see it on GitHub Page after a few minutes.
+
+If the created branch has merge conflict, this is very common. You will need to manually resolve the conflict by appending the latest runs (ignore the aggregate). The aggregate can be manually re-calculated by running `uv run bcbench result refresh`.
