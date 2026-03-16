@@ -30,7 +30,7 @@ Prerequisites:
 - [GitHub Copilot CLI](https://github.com/github/copilot-cli)
 
 ```bash
-# Folder layout
+# Folder layout example
 #   C:\depot\BCApps     -> cloned https://github.com/microsoft/BCApps
 #   C:\depot\BC-Bench   -> this repo
 

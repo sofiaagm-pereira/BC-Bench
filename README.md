@@ -2,16 +2,16 @@
 
 [![Dataset Validation and Verification](https://github.com/microsoft/BC-Bench/actions/workflows/dataset-validation.yml/badge.svg?event=schedule)](https://github.com/microsoft/BC-Bench/actions/workflows/dataset-validation.yml) [![CI](https://github.com/microsoft/BC-Bench/actions/workflows/CI.yml/badge.svg)](https://github.com/microsoft/BC-Bench/actions/workflows/CI.yml)
 
-A benchmark for evaluating AI coding agents on Business Central (AL) development tasks, inspired by [SWE-Bench](https://github.com/swe-bench/SWE-bench).
+A benchmark for evaluating coding agents on real-world Business Central (AL) development tasks, inspired by [SWE-Bench](https://github.com/swe-bench/SWE-bench).
 
 ## Purpose
 
-BC-Bench provides a reproducible evaluation framework for AI coding agents working on real-world Business Central development tasks:
+BC-Bench provides a reproducible evaluation framework for coding agents working on real-world Business Central development tasks:
 
-- **Measure performance** of different AI models on authentic AL issues
+- **Measure performance** of different models on authentic AL issues
 - **Quantify impact** of tooling changes (MCP servers, custom instructions, custom agents, etc)
 - **Track progress** with transparent, comparable metrics over time
-- **Rapidly iterate** on agent configurations and evaluation setups
+- **Rapidly iterate** on agent configurations and setups
 
 ## Dataset
 
@@ -23,7 +23,7 @@ We follow the [SWE-Bench schema](https://huggingface.co/datasets/SWE-bench/SWE-b
 
 ## Agents Under Evaluation
 
-### mini-BC-agent (Baseline)
+### mini-BC-agent
 
 A minimal agent loop based on [mini-swe-agent](https://github.com/SWE-agent/mini-SWE-agent). Its simplicity makes it perfect for establishing baseline performance. See [mini-bc-agent](src/bcbench/agent/mini/agent.py).
 
