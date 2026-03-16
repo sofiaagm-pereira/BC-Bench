@@ -118,7 +118,8 @@ def main() -> None:
 
     with open(output_path, "w", encoding="utf-8") as out:
         for i, entry in enumerate(entries, 1):
-            print(f"[{i}/{len(entries)}] {entry.instance_id} ({len(extract_file_paths_from_patch(entry.patch))} files)", file=sys.stderr)
+            fix_files = extract_file_paths_from_patch(entry.patch)
+            print(f"[{i}/{len(entries)}] {entry.instance_id} ({len(fix_files)} files)", file=sys.stderr)
             result = process_entry(entry)
             out.write(json.dumps(result, ensure_ascii=False) + "\n")
 
