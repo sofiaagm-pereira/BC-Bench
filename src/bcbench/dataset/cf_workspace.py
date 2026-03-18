@@ -215,21 +215,15 @@ def create_cf_entry(
     variant_description: str,
     intervention_type: str | None = None,
     fail_to_pass_override: list[TestEntry] | None = None,
+    pass_to_pass_override: list[TestEntry] | None = None,
     cf_path: Path | None = None,
     problem_statement_dir: Path | None = None,
+    dataset_path: Path | None = None,
 ) -> CounterfactualEntry:
     """Create a counterfactual entry from an edited workspace.
 
-    Args:
-        workspace_dir: Path to the workspace directory
-        variant_description: Description of the counterfactual variant
-        intervention_type: Optional type of intervention
-        fail_to_pass_override: Override auto-detected FAIL_TO_PASS tests
-        cf_path: Override path to counterfactual JSONL file
-        problem_statement_dir: Override path to problem statement directory
-
-    Returns:
-        The created CounterfactualEntry (also appended to counterfactual.jsonl)
+    PASS_TO_PASS is auto-populated from the base entry unless overridden.
+    Key ordering in the JSONL output follows the canonical order.
     """
     metadata = _load_workspace_metadata(workspace_dir)
     base_instance_id: str = metadata["entry_id"]
@@ -240,17 +234,22 @@ def create_cf_entry(
         cf_path = _config.paths.counterfactual_dataset_path
     if problem_statement_dir is None:
         problem_statement_dir = _config.paths.problem_statement_dir
+    if dataset_path is None:
+        dataset_path = _config.paths.dataset_path
 
     instance_id = _next_cf_id(base_instance_id, cf_path)
 
     if fail_to_pass_override is not None:
         fail_to_pass = fail_to_pass_override
     else:
-        # Build file_contents from workspace test files for codeunit ID resolution
         test_file_contents = _read_workspace_file_contents(workspace_dir, "test")
-        # Also use stored codeunit IDs from original patch extraction
         stored_codeunit_ids = metadata.get("codeunit_ids", {})
         fail_to_pass = _detect_fail_to_pass(test_patch, base_instance_id, test_file_contents, stored_codeunit_ids)
+
+    if pass_to_pass_override is not None:
+        pass_to_pass = pass_to_pass_override
+    else:
+        pass_to_pass = _resolve_pass_to_pass_from_base(base_instance_id, dataset_path)
 
     problem_statement_path = _scaffold_problem_statement(instance_id, base_instance_id, problem_statement_dir)
 
@@ -262,6 +261,7 @@ def create_cf_entry(
         test_patch=test_patch,
         patch=fix_patch,
         fail_to_pass=fail_to_pass,
+        pass_to_pass=pass_to_pass,
         problem_statement_override=problem_statement_path,
     )
 
@@ -286,6 +286,18 @@ def _read_workspace_file_contents(workspace_dir: Path, category: str) -> dict[st
                 rel_path = str(file_path.relative_to(after_dir)).replace("\\", "/")
                 contents[rel_path] = file_path.read_text(encoding="utf-8")
     return contents
+
+
+def _resolve_pass_to_pass_from_base(base_instance_id: str, dataset_path: Path) -> list[TestEntry]:
+    """Load PASS_TO_PASS from the base dataset entry."""
+    from bcbench.dataset.dataset_loader import load_dataset_entries
+
+    try:
+        entries = load_dataset_entries(dataset_path, entry_id=base_instance_id)
+        return entries[0].pass_to_pass
+    except Exception:
+        logger.warning(f"Could not load PASS_TO_PASS from base entry {base_instance_id}")
+        return []
 
 
 def _extract_codeunit_ids_from_patch(patch_str: str) -> dict[str, int]:
@@ -453,9 +465,24 @@ def _scaffold_problem_statement(cf_instance_id: str, base_instance_id: str, ps_d
     return f"{ps_dir.parent.name}/{ps_dir.name}/{cf_instance_id}"
 
 
+_CF_KEY_ORDER = [
+    "instance_id",
+    "base_instance_id",
+    "variant_description",
+    "intervention_type",
+    "problem_statement_override",
+    "FAIL_TO_PASS",
+    "PASS_TO_PASS",
+    "test_patch",
+    "patch",
+]
+
+
 def _append_cf_entry(cf_entry: CounterfactualEntry, cf_path: Path) -> None:
-    """Append a counterfactual entry to the JSONL file."""
+    """Append a counterfactual entry to the JSONL file with canonical key ordering."""
     cf_path.parent.mkdir(parents=True, exist_ok=True)
+    raw = cf_entry.model_dump(by_alias=True, mode="json")
+    ordered = {k: raw[k] for k in _CF_KEY_ORDER if k in raw}
     with open(cf_path, "a", encoding="utf-8") as f:
-        json.dump(cf_entry.model_dump(by_alias=True, mode="json"), f, ensure_ascii=False)
+        json.dump(ordered, f, ensure_ascii=False)
         f.write("\n")

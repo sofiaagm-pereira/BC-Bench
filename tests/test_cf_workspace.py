@@ -241,6 +241,18 @@ index aaa..bbb 100644
 
 
 class TestCreateCfEntry:
+    @staticmethod
+    def _write_base_dataset(tmp_path: Path, entry) -> Path:
+        """Write a base dataset JSONL so create_cf_entry can resolve PASS_TO_PASS."""
+        dataset_path = tmp_path / "bcbench.jsonl"
+        import json as _json
+
+        dataset_path.write_text(
+            _json.dumps(entry.model_dump(by_alias=True, mode="json"), ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        return dataset_path
+
     def test_creates_entry_and_appends_to_jsonl(self, tmp_path: Path):
         entry = create_dataset_entry(patch=SAMPLE_FIX_PATCH, test_patch=SAMPLE_TEST_PATCH)
         workspace = extract_workspace(entry, tmp_path / "ws")
@@ -253,8 +265,9 @@ class TestCreateCfEntry:
         base_ps = ps_dir / entry.instance_id
         base_ps.mkdir()
         (base_ps / "README.md").write_text("# Base Problem\n")
+        dataset_path = self._write_base_dataset(tmp_path, entry)
 
-        cf_entry = create_cf_entry(workspace, "Test variant description", cf_path=cf_path, problem_statement_dir=ps_dir)
+        cf_entry = create_cf_entry(workspace, "Test variant description", cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
 
         assert cf_entry.instance_id.endswith("__cf-1")
         assert cf_entry.base_instance_id == entry.instance_id
@@ -278,9 +291,10 @@ class TestCreateCfEntry:
         base_ps = ps_dir / entry.instance_id
         base_ps.mkdir()
         (base_ps / "README.md").write_text("# Base Problem\n")
+        dataset_path = self._write_base_dataset(tmp_path, entry)
 
-        cf1 = create_cf_entry(workspace, "Variant 1", cf_path=cf_path, problem_statement_dir=ps_dir)
-        cf2 = create_cf_entry(workspace, "Variant 2", cf_path=cf_path, problem_statement_dir=ps_dir)
+        cf1 = create_cf_entry(workspace, "Variant 1", cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
+        cf2 = create_cf_entry(workspace, "Variant 2", cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
 
         assert cf1.instance_id.endswith("__cf-1")
         assert cf2.instance_id.endswith("__cf-2")
@@ -295,9 +309,10 @@ class TestCreateCfEntry:
         base_ps = ps_dir / entry.instance_id
         base_ps.mkdir()
         (base_ps / "README.md").write_text("# Base Problem\n")
+        dataset_path = self._write_base_dataset(tmp_path, entry)
 
         override = [TestEntry(codeunitID=99999, functionName=frozenset({"CustomTest"}))]
-        cf_entry = create_cf_entry(workspace, "Override test", fail_to_pass_override=override, cf_path=cf_path, problem_statement_dir=ps_dir)
+        cf_entry = create_cf_entry(workspace, "Override test", fail_to_pass_override=override, cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
 
         assert cf_entry.fail_to_pass[0].codeunitID == 99999
         assert "CustomTest" in cf_entry.fail_to_pass[0].functionName
@@ -312,10 +327,51 @@ class TestCreateCfEntry:
         base_ps = ps_dir / entry.instance_id
         base_ps.mkdir()
         (base_ps / "README.md").write_text("# Original Problem Statement\n")
+        dataset_path = self._write_base_dataset(tmp_path, entry)
 
-        cf_entry = create_cf_entry(workspace, "Variant", cf_path=cf_path, problem_statement_dir=ps_dir)
+        cf_entry = create_cf_entry(workspace, "Variant", cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
 
         # CF problem statement directory should exist with copied README
         cf_ps_dir = ps_dir / cf_entry.instance_id
         assert cf_ps_dir.exists()
         assert (cf_ps_dir / "README.md").read_text() == "# Original Problem Statement\n"
+
+    def test_jsonl_key_ordering(self, tmp_path: Path):
+        entry = create_dataset_entry(patch=SAMPLE_FIX_PATCH, test_patch=SAMPLE_TEST_PATCH)
+        workspace = extract_workspace(entry, tmp_path / "ws")
+
+        cf_path = tmp_path / "counterfactual.jsonl"
+        ps_dir = tmp_path / "problemstatement"
+        ps_dir.mkdir()
+        base_ps = ps_dir / entry.instance_id
+        base_ps.mkdir()
+        (base_ps / "README.md").write_text("# Base Problem\n")
+        dataset_path = self._write_base_dataset(tmp_path, entry)
+
+        create_cf_entry(workspace, "Variant", cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
+
+        data = json.loads(cf_path.read_text().strip())
+        expected_order = [
+            "instance_id", "base_instance_id", "variant_description", "intervention_type",
+            "problem_statement_override", "FAIL_TO_PASS", "PASS_TO_PASS", "test_patch", "patch",
+        ]
+        assert list(data.keys()) == expected_order
+
+    def test_pass_to_pass_auto_populated_from_base(self, tmp_path: Path):
+        base_p2p = [TestEntry(codeunitID=99999, functionName=frozenset({"ExistingPassTest"}))]
+        entry = create_dataset_entry(patch=SAMPLE_FIX_PATCH, test_patch=SAMPLE_TEST_PATCH, pass_to_pass=base_p2p)
+        workspace = extract_workspace(entry, tmp_path / "ws")
+
+        cf_path = tmp_path / "counterfactual.jsonl"
+        ps_dir = tmp_path / "problemstatement"
+        ps_dir.mkdir()
+        base_ps = ps_dir / entry.instance_id
+        base_ps.mkdir()
+        (base_ps / "README.md").write_text("# Base Problem\n")
+        dataset_path = self._write_base_dataset(tmp_path, entry)
+
+        cf_entry = create_cf_entry(workspace, "Variant", cf_path=cf_path, problem_statement_dir=ps_dir, dataset_path=dataset_path)
+
+        assert len(cf_entry.pass_to_pass) == 1
+        assert cf_entry.pass_to_pass[0].codeunitID == 99999
+        assert "ExistingPassTest" in cf_entry.pass_to_pass[0].functionName

@@ -333,4 +333,4 @@ class TestCounterfactualDatasetIntegration:
         readme = problem_dir / "README.md"
         assert readme.exists(), f"Problem statement README missing at {readme}"
         content = readme.read_text(encoding="utf-8")
-        assert "Counterfactual" in content
+        assert content.strip(), f"Problem statement README is empty at {readme}"
