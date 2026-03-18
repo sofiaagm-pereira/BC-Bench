@@ -198,8 +198,8 @@ def cf_extract(
     workspace = extract_workspace(entry, output_dir, repo_path)
 
     typer.echo(f"Workspace created at: {workspace}")
-    typer.echo(f"  fix/after/   — edit these files to change the fix")
-    typer.echo(f"  test/after/  — edit these files to change the tests")
+    typer.echo("  fix/after/   — edit these files to change the fix")
+    typer.echo("  test/after/  — edit these files to change the tests")
     typer.echo(f"Run 'bcbench dataset cf-create {workspace}' when done editing.")
 
 
