@@ -1,4 +1,5 @@
 import random
+import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -22,6 +23,7 @@ from bcbench.cli_options import (
 )
 from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry, load_dataset_entries
+from bcbench.dataset.counterfactual_loader import load_counterfactual_entries
 from bcbench.evaluate import EvaluationPipeline, create_pipeline
 from bcbench.logger import get_logger
 from bcbench.results import BaseEvaluationResult
@@ -29,6 +31,24 @@ from bcbench.types import AgentMetrics, EvaluationContext, ExperimentConfigurati
 
 logger = get_logger(__name__)
 _config = get_config()
+
+_CF_PATTERN = re.compile(r"__cf-\d+$")
+
+
+def _load_entry(entry_id: str, dataset_path: Path) -> DatasetEntry:
+    """Load a dataset entry, auto-detecting counterfactual entries by ID pattern."""
+    if _CF_PATTERN.search(entry_id):
+        cf_path = _config.paths.counterfactual_dataset_path
+        pairs = load_counterfactual_entries(cf_path, dataset_path, entry_id=entry_id)
+        cf_entry, base_entry = pairs[0]
+        merged = cf_entry.to_dataset_entry(base_entry)
+        logger.info(
+            f"Loaded counterfactual entry {cf_entry.instance_id} "
+            f"(base: {cf_entry.base_instance_id})"
+        )
+        return merged
+    entries = load_dataset_entries(dataset_path, entry_id=entry_id)
+    return entries[0]
 
 evaluate_app = typer.Typer(help="Evaluate agents on benchmark datasets")
 
@@ -51,8 +71,7 @@ def evaluate_mini(
 
     To only run the agent to generate a patch without building/testing, use 'bcbench run mini' instead.
     """
-    entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
-    entry: DatasetEntry = entries[0]
+    entry: DatasetEntry = _load_entry(entry_id, dataset_path)
     logger.info(f"Loaded {entry_id} entry from dataset")
 
     run_dir: Path = output_dir / run_id
@@ -109,8 +128,7 @@ def evaluate_copilot(
 
     To only run the agent to generate a patch without building/testing, use 'bcbench run copilot' instead.
     """
-    entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
-    entry: DatasetEntry = entries[0]
+    entry: DatasetEntry = _load_entry(entry_id, dataset_path)
     logger.info(f"Loaded {entry_id} entry from dataset")
 
     run_dir: Path = output_dir / run_id
@@ -169,8 +187,7 @@ def evaluate_claude_code(
 
     To only run the agent to generate a patch without building/testing, use 'bcbench run claude' instead.
     """
-    entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
-    entry: DatasetEntry = entries[0]
+    entry: DatasetEntry = _load_entry(entry_id, dataset_path)
     logger.info(f"Loaded {entry_id} entry from dataset")
 
     run_dir: Path = output_dir / run_id
@@ -221,8 +238,7 @@ def evaluate_mock(
     """
     Evaluate mock agent on single dataset entry for testing purposes.
     """
-    entries: list[DatasetEntry] = load_dataset_entries(dataset_path, entry_id=entry_id)
-    entry: DatasetEntry = entries[0]
+    entry: DatasetEntry = _load_entry(entry_id, dataset_path)
     logger.info(f"Loaded {entry_id} entry from dataset")
 
     run_dir: Path = output_dir / run_id

@@ -15,6 +15,11 @@ on:
         required: false
         type: boolean
         default: false
+      include-counterfactual:
+        description: Include counterfactual entries from counterfactual.jsonl
+        required: false
+        type: boolean
+        default: true
     outputs:
       entries:
         description: JSON array of dataset entries
@@ -43,6 +48,10 @@ jobs:
             cmd="$cmd --modified-only"
           elif [[ "${{ inputs.test-run }}" == "true" ]]; then
             cmd="$cmd --test-run"
+          fi
+
+          if [[ "${{ inputs.include-counterfactual }}" == "false" ]]; then
+            cmd="$cmd --no-include-counterfactual"
           fi
 
           eval "$cmd"

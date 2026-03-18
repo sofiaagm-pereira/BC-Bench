@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from bcbench.dataset import CounterfactualEntry, DatasetEntry, load_counterfactual_entries
 from bcbench.dataset.dataset_entry import TestEntry
@@ -11,13 +12,6 @@ from bcbench.exceptions import EntryNotFoundError
 from bcbench.results.counterfactual import CounterfactualResult
 from bcbench.types import EvaluationCategory
 from tests.conftest import (
-    VALID_BASE_COMMIT,
-    VALID_CREATED_AT,
-    VALID_ENVIRONMENT_VERSION,
-    VALID_PATCH,
-    VALID_PROJECT_PATHS,
-    VALID_REPO,
-    VALID_TEST_PATCH,
     create_dataset_entry,
     create_evaluation_context,
     create_test_entry,
@@ -95,11 +89,11 @@ class TestCounterfactualEntryModel:
         assert entry.base_instance_id == VALID_BASE_INSTANCE_ID
 
     def test_invalid_instance_id_pattern_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             create_counterfactual_entry(instance_id="invalid-id")
 
     def test_invalid_base_instance_id_pattern_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             create_counterfactual_entry(base_instance_id="invalid")
 
     def test_intervention_type_is_optional(self):
@@ -112,7 +106,7 @@ class TestCounterfactualEntryModel:
 
     def test_model_is_frozen(self):
         entry = create_counterfactual_entry()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             entry.instance_id = "new_id"
 
 

@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 
 from bcbench.evaluate.base import EvaluationPipeline
@@ -19,6 +20,8 @@ from bcbench.types import EvaluationContext
 logger = get_logger(__name__)
 
 __all__ = ["CounterfactualPipeline"]
+
+_CF_SUFFIX_PATTERN = re.compile(r"^(.+)__cf-\d+$")
 
 
 class CounterfactualPipeline(EvaluationPipeline):
@@ -60,6 +63,9 @@ class CounterfactualPipeline(EvaluationPipeline):
         generated_patch = stage_and_get_diff(context.repo_path)
         result: CounterfactualResult | None = None
 
+        match = _CF_SUFFIX_PATTERN.match(context.entry.instance_id)
+        base_instance_id = match.group(1) if match else ""
+
         try:
             apply_patch(context.repo_path, context.entry.test_patch, f"{context.entry.instance_id} test patch")
             build_and_publish_projects(
@@ -72,15 +78,15 @@ class CounterfactualPipeline(EvaluationPipeline):
             )
             run_tests(context.entry, context.container_name, context.username, context.password)
 
-            result = CounterfactualResult.create_success(context, generated_patch)
+            result = CounterfactualResult.create_success(context, generated_patch, base_instance_id=base_instance_id)
             logger.info(f"Successfully completed {context.entry.instance_id}")
 
         except BuildError as e:
-            result = CounterfactualResult.create_build_failure(context, generated_patch, str(e))
+            result = CounterfactualResult.create_build_failure(context, generated_patch, str(e), base_instance_id=base_instance_id)
             logger.error(f"Build failed during evaluation of {context.entry.instance_id}: {e}")
 
         except TestExecutionError as e:
-            result = CounterfactualResult.create_test_failure(context, generated_patch, error_msg="Test failed\n" + str(e))
+            result = CounterfactualResult.create_test_failure(context, generated_patch, error_msg="Test failed\n" + str(e), base_instance_id=base_instance_id)
             logger.error(f"Tests failed during evaluation of {context.entry.instance_id}: {e}")
 
         finally:

@@ -9,6 +9,7 @@ from typing_extensions import Annotated
 from bcbench.cli_options import DatasetPath
 from bcbench.config import get_config
 from bcbench.dataset import DatasetEntry
+from bcbench.dataset.counterfactual_loader import load_counterfactual_entries
 from bcbench.dataset.dataset_loader import load_dataset_entries
 from bcbench.dataset.reviewer import run_dataset_reviewer
 from bcbench.exceptions import ConfigurationError
@@ -45,6 +46,7 @@ def list_entries(
     github_output: Annotated[str | None, typer.Option(help="Write JSON output to GITHUB_OUTPUT with this key name")] = None,
     modified_only: Annotated[bool, typer.Option(help="Only list entries that have been modified in git diff")] = False,
     test_run: Annotated[bool, typer.Option(help="Indicate this is a test run (with 2 entries)")] = False,
+    include_counterfactual: Annotated[bool, typer.Option(help="Include counterfactual entries from counterfactual.jsonl")] = True,
 ):
     """List dataset entry IDs."""
     if modified_only:
@@ -69,9 +71,37 @@ def list_entries(
         )
         diff_output: str = result.stdout
         entry_ids: list[str] = _modified_instance_ids_from_diff(diff_output)
+
+        if include_counterfactual:
+            cf_path = dataset_path.parent / "counterfactual.jsonl"
+            if cf_path.exists():
+                cf_diff_result = subprocess.run(
+                    [
+                        "git",
+                        "diff",
+                        "origin/main",
+                        "--unified=0",
+                        "--no-color",
+                        "--diff-filter=AM",
+                        "--",
+                        str(cf_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    check=True,
+                    cwd=cf_path.parent,
+                )
+                entry_ids.extend(_modified_instance_ids_from_diff(cf_diff_result.stdout))
     else:
         dataset_entries: list[DatasetEntry] = load_dataset_entries(dataset_path, random=2 if test_run else None)
         entry_ids: list[str] = [e.instance_id for e in dataset_entries]
+
+        if include_counterfactual:
+            cf_path = dataset_path.parent / "counterfactual.jsonl"
+            if cf_path.exists():
+                cf_pairs = load_counterfactual_entries(cf_path, dataset_path)
+                entry_ids.extend(cf_entry.instance_id for cf_entry, _ in cf_pairs)
 
     print(f"Found {len(entry_ids)} entry(ies){' (modified only)' if modified_only else ''}:")
     for entry_id in entry_ids:
