@@ -45,6 +45,8 @@ class PathConfig:
     copilot_dir: Path
     agent_share_dir: Path
 
+    counterfactual_dataset_path: Path
+
     @classmethod
     def from_root(cls, root: Path) -> PathConfig:
         """Create path configuration from repository root."""
@@ -52,6 +54,7 @@ class PathConfig:
             bc_bench_root=root,
             dataset_dir=root / "dataset",
             dataset_path=root / "dataset" / "bcbench.jsonl",
+            counterfactual_dataset_path=root / "dataset" / "counterfactual.jsonl",
             problem_statement_dir=root / "dataset" / "problemstatement",
             testbed_path=root.parent / "NAV",
             ps_script_path=root / "scripts",
@@ -102,7 +105,7 @@ class FilePatternConfig:
         return cls(
             trajectory_pattern=".traj.json",
             patch_pattern=".patch",
-            instance_pattern=r"^[a-zA-Z0-9_-]+__[a-zA-Z0-9_-]+-[0-9]+$",
+            instance_pattern=r"^[a-zA-Z0-9_-]+__[a-zA-Z0-9_-]+-[0-9]+(__cf-[0-9]+)?$",
             result_pattern=".jsonl",
             instruction_source_naming="AGENTS.md",
             instructions_dirname="instructions",

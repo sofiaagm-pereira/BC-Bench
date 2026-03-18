@@ -78,5 +78,7 @@ def get_info_from_dataset_entry(entry: DatasetEntry, category: EvaluationCategor
             return entry.get_task(), entry.patch
         case EvaluationCategory.TEST_GENERATION:
             return entry.get_task(), entry.test_patch
+        case EvaluationCategory.COUNTERFACTUAL_EVALUATION:
+            return entry.get_task(), entry.patch
         case _:
             raise ValueError(f"Unsupported evaluation category: {category}")

@@ -110,5 +110,7 @@ def setup_repo_postbuild(entry: DatasetEntry, repo_path: Path, category: Evaluat
                 copy_problem_statement_folder(entry, repo_path)
             case _:
                 raise ValueError(f"Unhandled test generation input mode: {input_mode}")
+    elif category == EvaluationCategory.COUNTERFACTUAL_EVALUATION:
+        copy_problem_statement_folder(entry, repo_path)
     else:
         copy_problem_statement_folder(entry, repo_path)

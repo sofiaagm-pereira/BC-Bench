@@ -98,8 +98,7 @@ class AgentType(str, Enum):
 class EvaluationCategory(str, Enum):
     BUG_FIX = "bug-fix"
     TEST_GENERATION = "test-generation"
-    # CODE_REVIEW = "code-review"
-    # EVENT_REQUEST = "event-request"
+    COUNTERFACTUAL_EVALUATION = "counterfactual-evaluation"
 
 
 @dataclass
