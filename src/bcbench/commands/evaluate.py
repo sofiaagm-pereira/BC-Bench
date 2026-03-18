@@ -42,13 +42,11 @@ def _load_entry(entry_id: str, dataset_path: Path) -> DatasetEntry:
         pairs = load_counterfactual_entries(cf_path, dataset_path, entry_id=entry_id)
         cf_entry, base_entry = pairs[0]
         merged = cf_entry.to_dataset_entry(base_entry)
-        logger.info(
-            f"Loaded counterfactual entry {cf_entry.instance_id} "
-            f"(base: {cf_entry.base_instance_id})"
-        )
+        logger.info(f"Loaded counterfactual entry {cf_entry.instance_id} (base: {cf_entry.base_instance_id})")
         return merged
     entries = load_dataset_entries(dataset_path, entry_id=entry_id)
     return entries[0]
+
 
 evaluate_app = typer.Typer(help="Evaluate agents on benchmark datasets")
 
