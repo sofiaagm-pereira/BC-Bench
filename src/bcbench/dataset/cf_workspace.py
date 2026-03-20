@@ -246,10 +246,7 @@ def create_cf_entry(
         stored_codeunit_ids = metadata.get("codeunit_ids", {})
         fail_to_pass = _detect_fail_to_pass(test_patch, base_instance_id, test_file_contents, stored_codeunit_ids)
 
-    if pass_to_pass_override is not None:
-        pass_to_pass = pass_to_pass_override
-    else:
-        pass_to_pass = _resolve_pass_to_pass_from_base(base_instance_id, dataset_path)
+    pass_to_pass = pass_to_pass_override if pass_to_pass_override is not None else _resolve_pass_to_pass_from_base(base_instance_id, dataset_path)
 
     problem_statement_path = _scaffold_problem_statement(instance_id, base_instance_id, problem_statement_dir)
 
