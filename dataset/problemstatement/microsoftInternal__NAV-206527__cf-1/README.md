@@ -1,6 +1,6 @@
 # Title: If a component's Item UOM has a 'Quantity Rounding Precision' of 1, & a Finished Good consumes partial quantity, the Prod. Order created from the Planning of a Sales Order pulls in the Component with a 'Qty. Per' and 'Exp. Qty.' of 0.
 ## Repro Steps:
-1. Use existing Item with no activity, or create new item. This will be the COMPONENT Item. Use PCS as base UOM and a secondary UOM (e.g., BOX).
+1. Use existing Item with no activity, or create new item. This will be the COMPONENT Item. Will use PCS as UOM.
 2. For the Component Item, go into Related > Item UOM > and set 'Quantity Rounding Precision' = 1 on the bottom.
 3. Component Item should have
   Replenishment System = PURCHASE
@@ -11,20 +11,20 @@
   Replenishment System = PRODUNCTION ORDER
   Rounding Precision = 1
   Reorder Policy = ORDER
-  Production BOM => Create new Certified Production BOM that consumes COMPONENT Item with 'Quantity Per' = .09 using the secondary UOM.
+  Production BOM => Create new Certified Production BOM that consumes COMPONENT Item with 'Quantity Per' = .005
 5. Now create Sales Order for any Customer for FG Item for 1 Quantity at BLUE (or MAIN) location.
 6. On the Sales Order go to Actions > Plan > Planning > Create Prod. Order and choose 'Released' and 'Item Order'.
 7. Then choose Order Tracking and then 'Show' which will take you to the Released Prod. Order.
 8. We will see prod. Order for FG Item with 1 qty. Go to Line > Components
 
-**EXPECTED RESULTS** = 'Quantity Per' and 'Expected Quantity' = .09
+**EXPECTED RESULTS** = 'Quantity Per' and 'Expected Quantity' = .005 (must not be rounded to 0)
 **ACTUAL RESULTS** = 'Quantity Per' and 'Expected Quantity' = 0
 
 If you were then to delete the Released Production Order, and go to the Planning Worksheet and run the Calc. Regenerative Plan for the 2 items, you would receive an error:
 "The value in the Qty. Rounding Precision field on the Item Unit of Measure page is causing the rounding precision for the Expected Quantity field to be incorrect."
 
 ## Description:
-2If a component's Item UOM has a 'Quantity Rounding Precision' set to 1, and a Finished Good consumes partial quantity using a non-base UOM, the Production Order created from the Planning section of a Sales Order pulls in the Component but with a 'Quantity Per' and 'Expected Quantity' of 0. If we are producing 1 FG Item and the 'Quantity Per' is set to consume .1 component, we would expect 'Quantity Per' and 'Expected Quantity' both = .1. There is no error message.
+2If a component's Item UOM has a 'Quantity Rounding Precision' set to 1, and a Finished Good consumes a very small partial quantity (0.005, below rounding precision), the Production Order created from the Planning section of a Sales Order pulls in the Component but with a 'Quantity Per' and 'Expected Quantity' of 0. If we are producing 1 FG Item and the 'Quantity Per' is set to consume .005 component, we would expect 'Quantity Per' and 'Expected Quantity' both = .005. There is no error message.
 
 But if you run the Planning Worksheet's 'Calc. Regenerative Plan', then you will get an error message about the 'Quantity Rounding Precision'.
 
