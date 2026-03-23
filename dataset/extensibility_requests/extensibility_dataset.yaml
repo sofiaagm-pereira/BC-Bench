@@ -954,3 +954,271 @@ entries:
                 AccName: Text[100];
                 ShortcutDimCode: array[8] of Code[20];
             ```
+
+  - instance_id: issue-29755
+    input:
+      title: "[Event Request] codeunit 7322 \"Create Inventory Pick/Movement\" - procedure CreateInvtMvntWithoutSource"
+      description: |
+        ### Why do you need this change?
+
+        Currently there is no way to circumvent the "There is nothing to handle" error.
+
+        ### Alternatives Evaluated:
+        There are no alternatives for this issue. All events are either too early or too late.
+
+        ### Justification for IsHandled:
+        We need to be able to exit the procedure without the error.
+
+        ### Performance Considerations:
+        Called once per procedure execution, only if there is an error. Negligible impact.
+
+        ### Data Sensitivity Review:
+        No significantly sensitive data would be exposed through this event.
+
+        ### Multi-extension interaction:
+        There is no risk if multiple extensions are subscribed.
+
+        ### Describe the request
+
+        Can you add an event when raising the error "There is nothing to handle"
+
+        ```AL
+        procedure CreateInvtMvntWithoutSource(var InternalMovementHeader: Record "Internal Movement Header")
+            var
+                InternalMovementLine: Record "Internal Movement Line";
+                NewWarehouseActivityLine: Record "Warehouse Activity Line";
+                RemQtyToPickBase: Decimal;
+            //>>> New
+                IsHandled: Boolean;
+            //<<< New
+            begin
+                if not HideDialog then
+                    if not Confirm(CreateInvtMvmtQst, false) then
+                        exit;
+
+                ...
+
+                FindNextLineNo();
+
+                repeat
+                    NewWarehouseActivityLine.Init();
+                    ...
+                    CreatePickOrMoveLine(NewWarehouseActivityLine, RemQtyToPickBase, RemQtyToPickBase, false);
+                until InternalMovementLine.Next() = 0;
+
+                if NextLineNo = 10000 then begin
+                //>>> New
+                    OnCreateInvtMvntWithoutSourceOnBeforeNothingToHandleError(IsHandled);
+                    if IsHandled then
+                        exit;
+                //<<< New
+                    Error(NothingToHandleMsg);
+                end;
+
+                MoveWhseComments(InternalMovementHeader."No.", CurrWarehouseActivityHeader."No.");
+
+                if DeleteHandledInternalMovementLines(InternalMovementHeader."No.") then begin
+                    InternalMovementHeader.Delete(true);
+                    if not HideDialog then
+                        Message(ActivityCreatedMsg, CurrWarehouseActivityHeader.Type, CurrWarehouseActivityHeader."No.");
+                end else
+                    if not HideDialog then
+                        Message(TrackingNotFullyAppliedMsg, CurrWarehouseActivityHeader.Type, CurrWarehouseActivityHeader."No.");
+
+                OnAfterCreateInvtMvntWithoutSource(CurrWarehouseActivityHeader, InternalMovementHeader);
+            end;
+
+            //>>> New
+            [IntegrationEvent(false, false)]
+            local procedure OnCreateInvtMvntWithoutSourceOnBeforeNothingToHandleError(var IsHandled: Boolean)
+            begin
+            end;
+            //<<< New
+        ```
+        Internal work item: [AB#623063](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/623063)
+
+      comments: ""
+
+    expected:
+      labels: "SCM, event-request"
+      comments:
+        - author: Agent
+          body: |
+            ✅ **Analysis complete - approved for implementation**
+
+            ---
+
+            **Implementation:**
+
+            Add a new integration event in the `CreateInvtMvntWithoutSource` procedure to allow bypassing the "nothing to handle" error.
+
+            **Location in `CreateInvtMvntWithoutSource` procedure (around line 1598):**
+
+            ```al
+            if NextLineNo = 10000 then begin
+                IsHandled := false;
+                OnCreateInvtMvntWithoutSourceOnBeforeNothingToHandleError(IsHandled);
+                if not IsHandled then
+                    Error(NothingToHandleMsg);
+            end;
+            ```
+
+            **Event Publisher (add at the end of the codeunit with other events):**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnCreateInvtMvntWithoutSourceOnBeforeNothingToHandleError(var IsHandled: Boolean)
+            begin
+            end;
+            ```
+
+            ---
+
+            **File:** `CreateInventoryPickMovement.Codeunit.al`
+
+  - instance_id: issue-29767
+    input:
+      title: "[Request for Extrenal] Report 8051 \"Contract Deferrals Release\""
+      description: |
+        ### Why do you need this change?
+
+        In order to document the Contract Deferrals release for customer and vendor with additional data in G/L Entries, we require certain events.
+
+        ### Describe the request
+
+        We need an integration event at the procedure
+
+        local procedure InsertTempGenJournalLine(DocumentNo: Code[20]; ContractNo: Code[20]; DeferralEntryNo: Integer; DimSetID: Integer; AccountNo: Code[20]; BalAccountNo: Code[20]; PostingAmount: Decimal; GenBusPostingGroup: Code[20]; GenProdPostingGroup: Code[20]; Partner: Enum "Service Partner")
+        begin
+            LineNo += 1;
+            TempGenJournalLine."Account No." := AccountNo;
+            TempGenJournalLine."Bal. Account No." := BalAccountNo;
+            TempGenJournalLine."Document No." := DocumentNo;
+            TempGenJournalLine."Subscription Contract No." := ContractNo;
+            TempGenJournalLine."Gen. Bus. Posting Group" := GenBusPostingGroup;
+            TempGenJournalLine."Gen. Prod. Posting Group" := GenProdPostingGroup;
+            TempGenJournalLine."Dimension Set ID" := DimSetID;
+            TempGenJournalLine.Amount := PostingAmount;
+            TempGenJournalLine."Line No." := LineNo;
+            TempGenJournalLine."Deferral Line No." := DeferralEntryNo;
+            OnBeforeInsertTemGenJournalLine(TempGenJournalLine, Partner)
+            TempGenJournalLine.Insert(false);
+        end;
+
+        [IntegrationEvent(false, false)]
+        Local procedure OnBeforeInsertTemGenJournalLine(var TempGenJournalLine: Record "Gen. Journal Line"; Partner: Enum "Service Partner")
+
+        And need event at next procedure for transfer the data in TempGenJournalLine to GenJnlLine before post the data
+
+        procedure PostGenJnlLine(var TempGenJournalLine: Record "Gen. Journal Line" temporary; PostingDate: Date; SourceCodeSetupContractDeferralsRelease: Code[10])
+        ...
+            OnBeforePostGenJnlLint(TempGenJournalLine, GenJnlLine);
+            GenJnlPostLine.RunWithCheck(GenJnlLine);
+            ...
+            OnBeforePostGenJnlLine(TempGenJournalLine, GenJnlLine);
+            GenJnlPostLine.RunWithCheck(GenJnlLine);
+        end;
+
+        [IntegrationEvent(false, false)]
+        Local procedure OnBeforePostGenJnlLint(TempGenJournalLine: Record "Gen. Journal Line"; var GenJournalLine: Record "Gen. Journal Line")
+
+      comments: ""
+
+    expected:
+      labels: "agent-not-processable"
+      comments: []
+
+  - instance_id: issue-29789
+    base_commit: "181dc724bef8901c9cab0c5a5a5a0e796958adc5"
+    input:
+      title: "[Event Request] Missing OnApplyStdCodesToPurchaseLinesOnAfterValidateType event"
+      description: |
+        ### Why do you need this change?
+
+        Table 172 "Standard Customer Sales Code" exposes `OnApplyStdCodesToSalesLinesOnAfterValidateType` inside `ApplyStdCodesToSalesLines`. This event fires immediately after `Type` is validated on the newly inserted sales line, allowing extensions to react to or complement the type validation — for example, to set custom default values, apply additional field logic, or integrate with third-party modules that depend on the line type being resolved before further fields are set.
+
+        Table 175 "Standard Vendor Purchase Code" has a symmetric procedure `ApplyStdCodesToPurchaseLines` but is missing the equivalent event. Extensions that extend both the sales and purchase recurring-code flow are unable to implement consistent behavior on the purchase side.
+
+        There is no existing event in `ApplyStdCodesToPurchaseLines` that fires at the same point in the flow (after type validation, before additional field assignments such as `No.` validation):
+
+        | Existing event | Position | Sufficient? |
+        |---|---|---|
+        | `OnBeforeApplyStdCodesToPurchaseLines` | Before loop | Too early |
+        | `OnApplyStdCodesToPurchaseLinesOnBeforeStdPurchLineFind` | Before per-line processing | Too early |
+        | `OnApplyStdCodesToPurchaseLinesOnAfterPurchLineInsert` | After insert, all fields set | Too late |
+        | `OnAfterApplyStdCodesToPurchaseLines` | After full loop | Too late |
+
+        ### Describe the request
+
+        ### EventRequest
+
+
+        [W1][Table][175][Standard Vendor Purchase Code]
+        [ApplyStdCodesToPurchaseLines]
+        ___
+
+        Add a missing integration event equivalent to
+        OnApplyStdCodesToSalesLinesOnAfterValidateType in Table 172.
+        The event should fire immediately after PurchLine.Validate(Type)
+        inside the ApplyStdCodesToPurchaseLines loop, passing the current
+        purchase line and the standard purchase line as parameters.
+        ___
+        ```al
+
+        [IntegrationEvent(false, false)]
+        local procedure OnApplyStdCodesToPurchaseLinesOnAfterValidateType(
+            var PurchaseLine: Record "Purchase Line";
+            StandardPurchaseLine: Record "Standard Purchase Line")
+        begin
+        end;
+        ```
+
+        ### Proposed placement (pseudocode context)
+
+        ```al
+        // inside ApplyStdCodesToPurchaseLines loop:
+        PurchLine.Validate(Type, StdPurchLine.Type);
+        OnApplyStdCodesToPurchaseLinesOnAfterValidateType(PurchLine, StdPurchLine);  // <-- new
+        PurchLine.Validate("No.", StdPurchLine."No.");
+        ```
+
+        ### Symmetry reference — Table 172 existing event
+
+        ```al
+        // Table 172 "Standard Customer Sales Code";
+        [IntegrationEvent(false, false)]
+        local procedure OnApplyStdCodesToSalesLinesOnAfterValidateType(
+            var SalesLine: Record "Sales Line";
+            StandardSalesLine: Record "Standard Sales Line")
+        begin
+        end;
+        ```
+
+        The requested event is a direct purchase-side mirror of this existing sales-side event.
+
+        Internal work item: [AB#624115](https://dynamicssmb2.visualstudio.com/1fcb79e7-ab07-432a-a3c6-6cf5a88ba4a5/_workitems/edit/624115)
+
+      comments: ""
+
+    expected:
+      labels: ""
+      state: "closed"
+      comments:
+        - author: Agent
+          body: |
+            ✅ **Good news! This is already implemented in the codebase.**
+
+            The requested change already exists:
+
+            **Existing implementation:**
+
+            ```al
+            [IntegrationEvent(false, false)]
+            local procedure OnApplyStdCodesToPurchaseLinesOnLoopStdPurchLine(var StandardVendorPurchaseCode: Record "Standard Vendor Purchase Code"; var StandardPurchaseLine: Record "Standard Purchase Line"; var PurchaseLine: Record "Purchase Line"; var PurchaseHeader: Record "Purchase Header"; var StandardPurchaseCode: Record "Standard Purchase Code"; var IsHandled: Boolean)
+            begin
+            end;
+            ```
+
+            **File:** `StandardVendorPurchaseCode.Table.al`
+
+            You can use this existing event in your extension. Closing this issue as the request is already satisfied.

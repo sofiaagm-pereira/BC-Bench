@@ -3,7 +3,6 @@ import os
 from collections.abc import Callable
 
 from autoevals import LLMClassifier
-from autoevals.score import Score
 
 from bcbench.config import get_config
 from bcbench.dataset import ExtensibilityDatasetEntry
@@ -25,26 +24,11 @@ class IssueStateMatch:
         return expected == output_state
 
 
-class LabelMatch:
-    def __call__(self, *, expected: dict, output: dict, **kwargs) -> list[Score]:
-        expected_labels_str = expected.get("labels", "")
-        expected_labels = {label.strip() for label in expected_labels_str.split(",")} if expected_labels_str else set()
-        output_labels = set(output.get("labels", []))
-
-        matched_labels = expected_labels.intersection(output_labels)
-
-        recall = (1.0 if len(output_labels) == 0 else 0.0) if len(expected_labels) == 0 else len(matched_labels) / len(expected_labels)
-        precision = (1.0 if len(expected_labels) == 0 else 0.0) if len(output_labels) == 0 else len(matched_labels) / len(output_labels)
-        f1_score = 0.0 if precision + recall == 0 else 2 * (precision * recall) / (precision + recall)
-
-        match_rate = len(matched_labels) / len(expected_labels) if expected_labels else 0.0
-
-        return [
-            Score("LabelMatchRate", match_rate),
-            Score("LabelRecall", recall),
-            Score("LabelPrecision", precision),
-            Score("LabelF1Score", f1_score),
-        ]
+def _labels_match(expected: dict, output: dict) -> bool:
+    expected_labels_str = expected.get("labels", "")
+    expected_labels = {label.strip().lower() for label in expected_labels_str.split(",")} if expected_labels_str else set()
+    output_labels = {label.lower() for label in output.get("labels", [])}
+    return expected_labels == output_labels
 
 
 def _create_github_models_client():
@@ -142,18 +126,22 @@ def compare_extensibility_output(
         # Issue state
         expected_state = expected.get("state", "open")
         state_ok = IssueStateMatch()(expected=expected_state, output=output)
+        logger.info(f"  IssueStateMatch: {'PASS' if state_ok else 'FAIL'} (expected '{expected_state}', got '{output.get('state_of_issue')}')")
 
         # Labels
-        label_scores = LabelMatch()(expected=expected, output=output)
-        for score in label_scores:
-            logger.info(f"  {score.name}: {score.score}")
-        label_f1 = next((s for s in label_scores if s.name == "LabelF1Score"), None)
-        labels_ok = label_f1 is not None and label_f1.score == 1.0
+        labels_ok = _labels_match(expected=expected, output=output)
+        logger.info(f"  LabelsMatch: {'PASS' if labels_ok else 'FAIL'} (expected '{expected.get('labels', '')}', got '{', '.join(output.get('labels', []))}')")
 
         # Comment (LLM judge — may fail without API key)
         comment_ok = False
         comment_score = 0.0
-        if run_comment_eval:
+        expected_comment = expected.get("comments", "")
+        generated_comment = output.get("comment", "")
+        if not expected_comment:
+            comment_ok = not generated_comment
+            comment_score = 1.0 if comment_ok else 0.0
+            logger.info(f"  CommentMatch: expected empty, generated {'empty' if comment_ok else 'non-empty'}")
+        elif run_comment_eval:
             try:
                 comment_result = IssueCommentMatch()(input=input_data, expected=expected, output=output)
                 comment_score = comment_result.score if comment_result else 0.0

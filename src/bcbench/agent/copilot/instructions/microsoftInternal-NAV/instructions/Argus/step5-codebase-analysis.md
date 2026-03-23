@@ -12,12 +12,13 @@
 3.  **Locate Code:** For each object in `ObjectList`:
     - Find the object in the codebase using a **glob by filename first** (fastest, does not read file content):
         - AL files follow the naming convention `CamelCaseName.ObjectType.al`. Derive the filename from the object name.
-        - Example: Page "Recurring Job Jnl." → `glob("**/RecurringJobJnl.Page.al")` or `glob("**/RecurringJobJnl*.al")`
-        - Example: Codeunit "Phys. Invt. Order-Finish" → `glob("**/PhysInvtOrderFinish*.al")` or `glob("**/*PhysInvt*Order*Finish*.al")`
-        - **Priority:** Search in the W1 layer first: `glob("**/W1/**/*RecurringJobJnl*.al")`.
-        - **Only if glob yields no result**, fall back to a single targeted grep by object name (NOT by numeric ID): `grep("Recurring Job Jnl", "**/W1/**/*.al")`.
+        - **CRITICAL: All searches MUST be scoped to `App/Layers/` — do NOT search outside this path.**
+        - Example: Page "Recurring Job Jnl." → `glob("App/Layers/**/W1/**/*RecurringJobJnl*.al")`
+        - Example: Codeunit "Phys. Invt. Order-Finish" → `glob("App/Layers/**/W1/**/*PhysInvtOrderFinish*.al")`
+        - **Only if glob yields no result**, fall back to a single targeted grep by object name (NOT by numeric ID): `grep("Recurring Job Jnl", "App/Layers/**/W1/**/*.al")`.
         - **CRITICAL: Do NOT search by numeric ID** (e.g. do NOT grep for "page 289"). Do NOT use `type="al"` or bare `**/*.al` glob patterns — they scan the entire codebase and are extremely slow.
-        - **Failure Condition:** If not found after glob + one targeted grep, return `agent-not-processable`.
+        - **CRITICAL: Do NOT search outside `App/Layers/`** — never use `**/W1/**` or any pattern without the `App/Layers/` prefix.
+        - **STOP IMMEDIATELY** if the object is not found after glob + one targeted grep within `App/Layers/`. Do NOT search elsewhere. Do NOT expand the search scope. Return `{"Success": false, "FailureLabel": "agent-not-processable", "FailureReason": "Object <name> not found in App/Layers/"}` and proceed directly to step 7.
     - **Verify Target:** Confirm procedure/trigger logic.
         - **Trigger missing?** Create new (Allowed).
         - **Procedure missing?** Return `missing-info`.
