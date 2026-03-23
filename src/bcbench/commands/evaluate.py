@@ -144,7 +144,6 @@ def evaluate_copilot(
     )
 
     pipeline = create_pipeline(category)
-
     if category == EvaluationCategory.EXTENSIBILITY_REQUEST:
         pipeline.execute(
             context,
@@ -167,6 +166,7 @@ def evaluate_copilot(
                 model=ctx.model,
                 output_dir=ctx.result_dir,
                 al_mcp=al_mcp,
+                container_name=ctx.container_name,
             ),
         )
 
@@ -186,6 +186,7 @@ def evaluate_claude_code(
     repo_path: RepoPath = _config.paths.testbed_path,
     output_dir: OutputDir = _config.paths.evaluation_results_path,
     run_id: RunId = "claude_code_test_run",
+    al_mcp: Annotated[bool, typer.Option("--al-mcp", help="Enable AL MCP server")] = False,
 ):
     """
     Evaluate Claude Code on single dataset entry.
@@ -224,6 +225,8 @@ def evaluate_claude_code(
             category=category,
             model=ctx.model,
             output_dir=ctx.result_dir,
+            al_mcp=al_mcp,
+            container_name=ctx.container_name,
         ),
     )
 

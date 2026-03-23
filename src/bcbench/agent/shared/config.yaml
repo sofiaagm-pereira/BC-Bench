@@ -29,18 +29,18 @@ prompt:
   test-generation-template: |
     You are working with a Business Central (AL) code repository at {{repo_path}}.
     {% if is_gold_patch and is_problem_statement %}
-    Task: Generate ONE test case that reproduce the issue described below {% if include_project_paths %}in the following projects: {{project_paths}}{% endif %}
+    Task: Generate ONE NEW test case that reproduce the issue described below {% if include_project_paths %}in the following projects: {{project_paths}}{% endif %}
       The fix has already been applied as local unstaged changes. Write a test that passes with this fix and would fail without it.
     {% elif is_gold_patch %}
-    Task: Generate ONE test case that verifies the unstaged changes in *.al files {% if include_project_paths %}in the following projects: {{project_paths}}{% endif %}
+    Task: Generate ONE NEW test case that verifies the unstaged changes in *.al files {% if include_project_paths %}in the following projects: {{project_paths}}{% endif %}
       The fix has already been applied as local unstaged changes. Write a test that passes with this fix and would fail without it.
     {% else %}
-    Task: Generate ONE test case that reproduce the issue described below {% if include_project_paths %}in the following projects: {{project_paths}}{% endif %}
+    Task: Generate ONE NEW test case that reproduce the issue described below {% if include_project_paths %}in the following projects: {{project_paths}}{% endif %}
       The tests should fail against the current codebase (unfixed) and should pass once the issue is fixed.
     {% endif %}
 
     Important constraints:
-    - Do NOT modify any production code
+    - Do NOT modify any production code or existing tests
     - Focus solely on generating tests {% if is_gold_patch %}that verify the fix works correctly{% else %}for the reported issue{% endif %}
     {% if al_mcp %}
     - Do NOT try to run tests
@@ -71,42 +71,53 @@ prompt:
     After completing the analysis, you MUST produce a comprehensive JSON output.
 
 # controls:
-# 1. whether to copy custom instructions (`src/bcbench/agent/copilot/instructions/<sanitized-repo>/`) into the repo
+# 1. whether to copy custom instructions from `src/bcbench/agent/shared/instructions/<sanitized-repo>/`
+#    - Copilot: copies to repo/.github/ and renames AGENTS.md to copilot-instructions.md
+#    - Claude: copies to repo/.claude/ and renames AGENTS.md to CLAUDE.md
 # 2. whether to pass --disable-custom-instructions to copilot
+# NOTE: this will copy any files in the instructions/<sanitized-repo>/ folder, including skills and custom agents
+# NOTE: the canonical source file is AGENTS.md; it is automatically renamed
+#       to the agent-specific filename (AgentType.instruction_filename) during setup
 instructions:
   enabled: true
 
 # controls:
-# 1. whether to copy skills (`src/bcbench/agent/copilot/instructions/<sanitized-repo>/skills/`) into repo/.github/skills/
-# 2. CLI auto-discovers from repo/.github/skills/
+# 1. whether to copy skills from `src/bcbench/agent/shared/instructions/<sanitized-repo>/skills/`
+#    - Copilot: copies to repo/.github/skills/
+#    - Claude: copies to repo/.claude/skills/
 skills:
   enabled: false
 
 # controls:
-# 1. whether to copy custom agents (`src/bcbench/agent/copilot/instructions/<sanitized-repo>/agents/`) into the repo
-# 2. whether to pass --agent=<agent-name> to copilot
+# 1. whether to copy custom agents from `src/bcbench/agent/shared/instructions/<sanitized-repo>/agents/`
+#    - Copilot: copies to repo/.github/agents/
+#    - Claude: copies to repo/.claude/agents/
+# 2. whether to pass --agent=<agent-name> to copilot or claude
 agents:
   enabled: true
   name: Argus
 
-# mcp:
-#   servers:
-#     - name: "mslearn"
-#       type: "http"
-#       url: "https://learn.microsoft.com/api/mcp"
-#       tools: ["*"]
+mcp:
+  servers:
+    # AL MCP server (toggled via --al-mcp CLI flag), https://www.nuget.org/packages/Microsoft.Dynamics.BusinessCentral.Development.Tools
+    # NOTE: --assemblyprobingpaths are injected programmatically by mcp.py (requires runtime detection)
+    - name: "altool"
+      type: "stdio"
+      command: "al"
+      args:
+        [
+          "launchmcpserver",
+          "--transport",
+          "stdio",
+          "--packagecachepath",
+          "{{package_cache_path}}",
+        ]
 
-#     - name: "filesystem"
-#       type: "local"
-#       command: "npx"
-#       args: ["-y", "@modelcontextprotocol/server-filesystem", "{{repo_path}}"]
-#       tools: ["*"]
+    # - name: "mslearn"
+    #   type: "http"
+    #   url: "https://learn.microsoft.com/api/mcp"
 
-# AL MCP server configuration (flag-gated via --al-mcp CLI flag)
-# https://www.nuget.org/packages/Microsoft.Dynamics.BusinessCentral.Development.Tools
-# This provides foundational AL development functions like compile
-al-mcp:
-  name: "altool"
-  type: "http"
-  url: "http://localhost:5000"
-  tools: ["*"]
+    # - name: "filesystem"
+    #   type: "stdio"
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-filesystem", "{{repo_path}}"]
