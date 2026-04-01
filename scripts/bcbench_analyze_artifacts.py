@@ -122,106 +122,6 @@ def _bucket_error(msg: str) -> str:
     return "other"
 
 
-def write_grouped_errors_report(errors_summary_csv: Path, out_root: Path) -> Tuple[Optional[Path], Optional[Path]]:
-    """
-    Create grouped_errors.csv (+ grouped_errors.xlsx if openpyxl is available) next to errors_summary.csv.
-
-    Note: errors_summary.csv contains error variations for the TOP failing tests only (based on --top).
-    """
-    if not errors_summary_csv.exists():
-        return (None, None)
-
-    rows: List[Tuple[str, str, str, int]] = []
-    with errors_summary_csv.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            test_id = r.get("test_id", "")
-            try:
-                count = int(r.get("count", "1") or 1)
-            except ValueError:
-                count = 1
-            msg = r.get("error_message", "")
-            msg_norm = _normalize_error_message(msg)
-            bucket = _bucket_error(msg)
-            rows.append((bucket, msg_norm, test_id, count))
-
-    if not rows:
-        return (None, None)
-
-    agg: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    for bucket, msg_norm, test_id, count in rows:
-        key = (bucket, msg_norm)
-        a = agg.setdefault(key, {"occurrences": 0, "tests": set()})
-        a["occurrences"] += count
-        a["tests"].add(test_id)
-
-    out_rows: List[Dict[str, Any]] = []
-    for (bucket, msg_norm), a in agg.items():
-        tests = sorted(a["tests"])
-        out_rows.append(
-            {
-                "bucket": bucket,
-                "occurrences": a["occurrences"],
-                "distinct_tests": len(tests),
-                "example_test_ids": ",".join(tests[:5]),
-                "error_message_norm": msg_norm,
-            }
-        )
-
-    out_rows.sort(key=lambda r: (r["occurrences"], r["distinct_tests"]), reverse=True)
-
-    grouped_csv = out_root / "grouped_errors.csv"
-    with grouped_csv.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(
-            f,
-            fieldnames=["bucket", "occurrences", "distinct_tests", "example_test_ids", "error_message_norm"],
-        )
-        w.writeheader()
-        w.writerows(out_rows)
-
-    grouped_xlsx = out_root / "grouped_errors.xlsx"
-    try:
-        from openpyxl import Workbook
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "grouped_errors"
-
-        headers = ["bucket", "occurrences", "distinct_tests", "example_test_ids", "error_message_norm"]
-        ws.append(headers)
-        for r in out_rows:
-            ws.append([r[h] for h in headers])
-
-        ws.column_dimensions["A"].width = 34
-        ws.column_dimensions["B"].width = 12
-        ws.column_dimensions["C"].width = 14
-        ws.column_dimensions["D"].width = 60
-        ws.column_dimensions["E"].width = 140
-
-        ws2 = wb.create_sheet("bucket_summary")
-        ws2.append(["bucket", "occurrences", "distinct_tests"])
-        bs = defaultdict(lambda: {"occ": 0, "tests": set()})
-        for bucket, _msg_norm, test_id, count in rows:
-            bs[bucket]["occ"] += count
-            bs[bucket]["tests"].add(test_id)
-
-        bs_rows = [{"bucket": b, "occurrences": v["occ"], "distinct_tests": len(v["tests"])} for b, v in bs.items()]
-        bs_rows.sort(key=lambda r: r["occurrences"], reverse=True)
-
-        for r in bs_rows:
-            ws2.append([r["bucket"], r["occurrences"], r["distinct_tests"]])
-
-        ws2.column_dimensions["A"].width = 34
-        ws2.column_dimensions["B"].width = 12
-        ws2.column_dimensions["C"].width = 14
-
-        wb.save(grouped_xlsx)
-    except Exception:
-        grouped_xlsx = None
-
-    return (grouped_csv, grouped_xlsx)
-
-
 # ---------------------------- Record parsing ----------------------------
 def try_parse_jsonl_line(line: str) -> Optional[Dict[str, Any]]:
     line = line.strip()
@@ -647,8 +547,6 @@ def main() -> None:
                 msg_csv = msg if len(msg) <= 3000 else (msg[:3000] + "…")
                 w.writerow([tid, rank, c, msg_csv])
 
-    # ---------- Grouped errors report (normalized) ----------
-    grouped_csv, grouped_xlsx = write_grouped_errors_report(errors_summary_csv, out_root)
 
     print("\nDONE ✅")
     if extract_root.exists():
@@ -657,10 +555,6 @@ def main() -> None:
     print(f"- Summary -> {summary_csv}")
     print(f"- Top failures -> {top_csv}")
     print(f"- Error variations -> {errors_summary_csv}")
-    if grouped_csv is not None:
-        print(f"- Grouped errors (CSV) -> {grouped_csv}")
-    if grouped_xlsx is not None:
-        print(f"- Grouped errors (XLSX) -> {grouped_xlsx}")
     print(f"- Extracted tests -> {extracted_tests_root}")
 
 
