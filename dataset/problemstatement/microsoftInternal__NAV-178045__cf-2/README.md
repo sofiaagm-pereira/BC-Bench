@@ -1,6 +1,8 @@
-# Title: Error when trying to post Consumption that is reserved to multiple Lot Tracked ILEs: You have insufficient quantity of Item xyz on Inventory
+# Title: Consumption not posted for multiple ILEs of same Lot No. — only when reservation exists
 ## Repro Steps:
-Same as base repro, but the Lot No. is manually assigned instead of using the Assign Lot No. tracking mode.
+Same as NAV-178045 base repro, except:
+- Component Item has **Reserve = Optional** instead of Reserve = Always
+- The bug scenario depends on reservation splitting across ILEs
 
 ## Description:
-Consumption posting with manually assigned Lot No. instead of auto-assigned.
+Variant of NAV-178045 (L2: condition-change). The fix only applies the consumption correction when Reserved Quantity is non-zero on the old Item Ledger Entry. Test uses Reserve::Optional instead of Reserve::Always to ensure the scenario explicitly depends on reservation behavior. If no reservation exists, standard application logic applies.

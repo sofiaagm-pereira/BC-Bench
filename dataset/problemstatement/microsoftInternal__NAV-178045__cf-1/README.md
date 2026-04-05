@@ -1,7 +1,8 @@
-# Title: Error when trying to post Consumption that is reserved to multiple Lot Tracked ILEs: You have insufficient quantity of Item xyz on Inventory
+# Title: Consumption not posted for multiple ILEs of same Lot No. — only when multiple entries exist
 ## Repro Steps:
-Same as base repro, but the execution order in the Production Journal is changed:
-Item Tracking Lines are assigned before setting the consumption quantity.
+Same as NAV-178045 base repro, except:
+- Only **two** Item Journal Lines are posted with the same Lot No. (5 and 10 qty) instead of three
+- Total consumption quantity is 15 instead of 35
 
 ## Description:
-Consumption posting with item tracking assigned before quantity setting.
+Variant of NAV-178045 (L2: condition-change). The fix only applies the consumption correction when multiple Item Ledger Entries exist for the same lot (Count > 1 guard). Test uses 2 journal lines instead of 3 to create a tighter scenario while still exercising the multi-ILE path.

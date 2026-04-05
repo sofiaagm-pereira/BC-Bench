@@ -1,20 +1,15 @@
-# Title: Customer Card Statistics Information on the FactBox reflects Total that counts shipment even when a Sales Invoice exists but is not released
+# Title: Customer Card Statistics Total tripled — only deduct for Released invoices
 ## Repro Steps:
-Reproduced by Partner in W1 and DE Version.
-Escalation Engineer in US tested and confirmed in a Version 26 Tenant Sandbox in the US Version. (CRONUS USA Warehouse, Inc. - copy of base CRONUS USA, Inc. Company was used)
-1 - Create a new Customer for a clean test and use the standard CUSTOMER COMPANY Template to get required fields populated from the Template.  Added change was to Assign Location MAIN as the default Location for the company.
-2 - Go to Item Journals - Create and Post an Item Journal for 10 PCS of Item 1896-S Athens Desks to Location MAIN
-3 - Create a new Sales Order for the Customer created in Step 1 - On the Sales Order Lines, select Item for Type and select No. 1896-S. Enter a Quantity of 10 PCS. I changed price to $1,000.00 for easy value validation of $10,000.00 total Sales Invoice Amount.  Click Posting > Post Shipment only
-4 - Navigate to Sales Invoices and click the + to create a new Sales Invoice for the new Customer and use Line > Functions > Get Shipment lines to bring in the Shipment of 10 PCS of Item 1896-S
-5 - Do not release the Sales Invoice.
-6 - Search for Customers and select the Customer and open the Customer Card for the new Customer used. Make sure to click the 'i' Icon to open the FactBox as shown below.
-![Cronus Usa Warehouse](./cronus_usa_warehouse.png)
+1. Create a new Customer
+2. Create inventory for an item (10 PCS)
+3. Create a Sales Order for 10 PCS at a known unit price
+4. Post the Sales Order with Ship only (no invoice)
+5. Create a new Sales Invoice, use Get Shipment Lines, and **Release** it
+6. Open the Customer Card and check the FactBox statistics
 
-**Result:** Identify above highlighted in yellow the Total ($)ted Shipment along with an open Sales Invoice with Get Shipment Line completed to bring the Shipped Inventory into the Invoice Lines for billing, but prior to the Invoice being posted.
+Result: Total ($) shows the amount tripled because Shipped Not Invoiced, Outstanding Invoices, and SalesOutstandingAmountFromShipment all include the same shipment amount.
 
-**Expected Results:** Shipment amounts should not be counted once a Sales Invoice is created, even if not released.
-
-**NOTE:** The partner provided the following code as being the offending code area:
-![Coding Part](./coding_part.png)
+Expected: Total ($) should equal the Sales Line "Amount Including VAT". The fix should only deduct shipment-derived amounts from Outstanding Invoices when the invoice has Document Status = Released.
 
 ## Description:
+Variant of NAV-214926 (L2: condition-change). Same test as base (invoice is released). The fix adds a Document Status filter (Released) to GetShippedOutstandingInvoicesAmountLCY, so only released invoices contribute to the deduction. This is a narrower deduction scope than the base fix.

@@ -1,20 +1,15 @@
-# Title: Customer Card Statistics Information on the FactBox should only count posted shipment amounts
+# Title: Customer Card Statistics Total tripled — remove SalesOutstandingAmountFromShipment from formula
 ## Repro Steps:
-Reproduced by Partner in W1 and DE Version.
-Escalation Engineer in US tested and confirmed in a Version 26 Tenant Sandbox in the US Version. (CRONUS USA Warehouse, Inc. - copy of base CRONUS USA, Inc. Company was used)
-1 - Create a new Customer for a clean test and use the standard CUSTOMER COMPANY Template to get required fields populated from the Template.  Added change was to Assign Location MAIN as the default Location for the company.
-2 - Go to Item Journals - Create and Post an Item Journal for 10 PCS of Item 1896-S Athens Desks to Location MAIN
-3 - Create a new Sales Order for the Customer created in Step 1 - On the Sales Order Lines, select Item for Type and select No. 1896-S. Enter a Quantity of 10 PCS. I changed price to $1,000.00 for easy value validation of $10,000.00 total Sales Invoice Amount.
-4 - Navigate to Sales Invoices and click the + to create a new Sales Invoice for the new Customer and use Line > Functions > Get Shipment lines to bring in the Shipment of 10 PCS of Item 1896-S
-5 - Release the Sales Invoice but do not post.
-6 - Search for Customers and select the Customer and open the Customer Card for the new Customer used. Make sure to click the 'i' Icon to open the FactBox as shown below.
-![Cronus Usa Warehouse](./cronus_usa_warehouse.png)
+1. Create a new Customer
+2. Create inventory for an item (10 PCS)
+3. Create a Sales Order for 10 PCS at a known unit price
+4. Post the Sales Order with Ship only (no invoice)
+5. Create a new Sales Invoice, use Get Shipment Lines, and Release it
+6. Open the Customer Card and check the FactBox statistics
 
-**Result:** Identify above highlighted in yellow the Total ($)ted Shipment along with an open Sales Invoice with Get Shipment Line completed to bring the Shipped Inventory into the Invoice Lines for billing, but prior to the Invoice being posted.
+Result: Total ($) shows the amount tripled because Shipped Not Invoiced, Outstanding Invoices, and SalesOutstandingAmountFromShipment all include the same shipment amount.
 
-**Expected Results:** Only posted shipment-related amounts should be included in the Customer total.
-
-**NOTE:** The partner provided the following code as being the offending code area:
-![Coding Part](./coding_part.png)
+Expected: Total ($) should equal the Sales Line "Amount Including VAT". The fix removes SalesOutstandingAmountFromShipment from the formula entirely and only deducts shipment-derived invoice amounts from Outstanding Invoices.
 
 ## Description:
+Variant of NAV-214926 (L2: record-selection-change). Alternative fix strategy: instead of keeping SalesOutstandingAmountFromShipment in the formula and subtracting two deduction terms (requiring a new query object), this variant removes SalesOutstandingAmountFromShipment entirely and only subtracts ShippedOutstandingInvoicesLCY from Outstanding Invoices. Simpler fix — no new query file needed, only one new procedure.

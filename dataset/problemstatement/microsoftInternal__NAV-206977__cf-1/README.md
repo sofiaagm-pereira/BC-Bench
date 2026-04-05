@@ -17,7 +17,7 @@ Create a new blanket sales order and add the created item in the lines:
 8- This function will open the Assembly Order page:
 ![Assembly Order Step8](./assembly_order_step8.png)
 
-Expected result: the "show document" function should open the blanket assembly order page if available, otherwise fallback to assembly order page:
+Expected result: the routing logic for opening the assembly document should be handled at the page level instead of the table level:
 ![Result](./result.png)
 
 ## Description:
