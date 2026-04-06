@@ -10,7 +10,7 @@ from bcbench.dataset import CounterfactualEntry, DatasetEntry, load_counterfactu
 from bcbench.dataset.dataset_entry import TestEntry
 from bcbench.exceptions import EntryNotFoundError
 from bcbench.results.counterfactual import CounterfactualResult
-from bcbench.types import EvaluationCategory
+from bcbench.types import EvaluationCategory, FailureLayer
 from tests.conftest import (
     create_dataset_entry,
     create_evaluation_context,
@@ -31,7 +31,7 @@ def create_counterfactual_entry(
     patch: str = VALID_CF_PATCH,
     fail_to_pass: list[TestEntry] | None = None,
     problem_statement_override: str = "dataset/problemstatement/microsoftInternal__NAV-123456__cf-1",
-    intervention_type: str | None = None,
+    failure_layer: FailureLayer | None = None,
 ) -> CounterfactualEntry:
     if fail_to_pass is None:
         fail_to_pass = [create_test_entry()]
@@ -44,7 +44,7 @@ def create_counterfactual_entry(
         patch=patch,
         fail_to_pass=fail_to_pass,
         problem_statement_override=problem_statement_override,
-        intervention_type=intervention_type,
+        failure_layer=failure_layer,
     )
 
 
@@ -96,13 +96,13 @@ class TestCounterfactualEntryModel:
         with pytest.raises(ValidationError):
             create_counterfactual_entry(base_instance_id="invalid")
 
-    def test_intervention_type_is_optional(self):
-        entry = create_counterfactual_entry(intervention_type=None)
-        assert entry.intervention_type is None
+    def test_failure_layer_is_optional(self):
+        entry = create_counterfactual_entry(failure_layer=None)
+        assert entry.failure_layer is None
 
-    def test_intervention_type_is_set(self):
-        entry = create_counterfactual_entry(intervention_type="test-spec-change")
-        assert entry.intervention_type == "test-spec-change"
+    def test_failure_layer_is_set(self):
+        entry = create_counterfactual_entry(failure_layer=FailureLayer.L2_EXECUTION)
+        assert entry.failure_layer == FailureLayer.L2_EXECUTION
 
     def test_model_is_frozen(self):
         entry = create_counterfactual_entry()

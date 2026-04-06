@@ -355,7 +355,7 @@ class TestCreateCfEntry:
             "instance_id",
             "base_instance_id",
             "variant_description",
-            "intervention_type",
+            "failure_layer",
             "problem_statement_override",
             "FAIL_TO_PASS",
             "PASS_TO_PASS",

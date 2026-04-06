@@ -1,6 +1,5 @@
 ---
 description: "Create counterfactual (CF) dataset entries for BC-Bench. Provide the base instance_id and describe the code changes for each variant."
-mode: agent
 ---
 
 # Create Counterfactual Dataset Entries
@@ -22,7 +21,7 @@ The user will provide:
    - What code changes to make in `test/after/` (test modifications)
    - What code changes to make in `fix/after/` (fix modifications, often unchanged)
    - A short variant description
-   - The intervention type (`test-spec-change`, `fix-scope-change`, etc.)
+   - The failure layer (`L1-syntax-representation`, `L2-execution-validation`, `L3-event-driven-paradigm`, `L4-workflow-business-logic`, `L5-toolchain-ecosystem`) — classified post-hoc, not at creation time
 3. **Problem statement** — either a pre-written README path or content to generate
 
 ## Workflow (per variant)
@@ -54,8 +53,7 @@ uv run bcbench dataset cf-extract <base_instance_id> -o cf-<short-name>
 ### Step 4: Create the CF entry
 ```bash
 uv run bcbench dataset cf-create ./cf-<short-name> \
-  -d "<variant description>" \
-  -t "<intervention-type>"
+  -d "<variant description>"
 ```
 
 **This command automatically handles:**

@@ -192,12 +192,11 @@ def cf_extract(
 def cf_create(
     workspace_dir: Annotated[Path, typer.Argument(help="Path to the workspace directory")],
     variant_description: Annotated[str, typer.Option("--variant-description", "-d", help="Description of the counterfactual variant")],
-    intervention_type: Annotated[str | None, typer.Option("--intervention-type", "-t", help="Type of intervention")] = None,
 ):
     """Create a counterfactual entry from an edited workspace."""
     from bcbench.dataset.cf_workspace import create_cf_entry
 
-    cf_entry = create_cf_entry(workspace_dir, variant_description, intervention_type)
+    cf_entry = create_cf_entry(workspace_dir, variant_description)
 
     typer.echo(f"Created counterfactual entry: {cf_entry.instance_id}")
     typer.echo(f"Problem statement: {cf_entry.problem_statement_override}")

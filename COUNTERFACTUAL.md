@@ -72,8 +72,7 @@ Leave the `before/` files unchanged — they represent the original state.
 
 ```bash
 uv run bcbench dataset cf-create ./my-cf-workspace \
-  --variant-description "Only 3 of 4 emission fields required" \
-  --intervention-type "test-spec-change"
+  --variant-description "Only 3 of 4 emission fields required"
 ```
 
 This command:
@@ -88,7 +87,6 @@ This command:
 | Flag                          | Description                                                                   |
 | ----------------------------- | ----------------------------------------------------------------------------- |
 | `--variant-description`, `-d` | **Required.** Description of what this variant changes                        |
-| `--intervention-type`, `-t`   | Optional. Type of intervention (e.g., `test-spec-change`, `fix-scope-change`) |
 
 ### Step 4: Edit the problem statement
 
@@ -121,8 +119,7 @@ uv run bcbench dataset cf-extract microsoftInternal__NAV-210528 --output-dir ./c
 
 # 4. Create the CF entry
 uv run bcbench dataset cf-create ./cf-sustainability \
-  -d "Only 3 of 4 emission fields required: omits Work/Machine Center Emissions" \
-  -t "test-spec-change"
+  -d "Only 3 of 4 emission fields required: omits Work/Machine Center Emissions"
 
 # 5. Edit the problem statement
 # (edit dataset/problemstatement/microsoftInternal__NAV-210528__cf-1/README.md)
@@ -179,7 +176,7 @@ Each line in `counterfactual.jsonl` contains:
 | `instance_id`                | `<base_id>__cf-<N>` — unique identifier           |
 | `base_instance_id`           | ID of the base entry this variant is derived from |
 | `variant_description`        | Human-readable description of the variant         |
-| `intervention_type`          | Optional categorization of the change type        |
+| `failure_layer`              | Optional L1-L5 failure layer classification       |
 | `patch`                      | The counterfactual fix patch                      |
 | `test_patch`                 | The counterfactual test patch                     |
 | `FAIL_TO_PASS`               | Tests that must fail before fix, pass after       |

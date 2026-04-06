@@ -14,7 +14,7 @@ from bcbench.logger import get_logger
 if TYPE_CHECKING:
     from bcbench.dataset import DatasetEntry
 
-__all__ = ["AgentMetrics", "AgentType", "EvaluationCategory", "EvaluationContext", "ExperimentConfiguration"]
+__all__ = ["AgentMetrics", "AgentType", "EvaluationCategory", "EvaluationContext", "ExperimentConfiguration", "FailureLayer"]
 
 logger = get_logger(__name__)
 
@@ -99,6 +99,14 @@ class EvaluationCategory(str, Enum):
     BUG_FIX = "bug-fix"
     TEST_GENERATION = "test-generation"
     COUNTERFACTUAL_EVALUATION = "counterfactual-evaluation"
+
+
+class FailureLayer(str, Enum):
+    L1_SYNTAX = "L1-syntax-representation"
+    L2_EXECUTION = "L2-execution-validation"
+    L3_EVENT = "L3-event-driven-paradigm"
+    L4_WORKFLOW = "L4-workflow-business-logic"
+    L5_TOOLCHAIN = "L5-toolchain-ecosystem"
 
 
 @dataclass

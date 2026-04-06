@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from bcbench.dataset.dataset_entry import TestEntry
+from bcbench.types import FailureLayer
 
 if TYPE_CHECKING:
     from bcbench.dataset.dataset_entry import DatasetEntry
@@ -21,7 +22,7 @@ class CounterfactualEntry(BaseModel):
     base_instance_id: str = Field(pattern=r"^[a-zA-Z0-9_-]+__[a-zA-Z0-9_-]+-[0-9]+$")
 
     variant_description: Annotated[str, Field(min_length=1)]
-    intervention_type: str | None = None
+    failure_layer: FailureLayer | None = None
 
     test_patch: Annotated[str, Field(min_length=1)]
     patch: Annotated[str, Field(min_length=1)]
