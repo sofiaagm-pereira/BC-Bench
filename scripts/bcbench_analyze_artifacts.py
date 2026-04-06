@@ -4,7 +4,7 @@ bcbench_analyze_artifacts.py
 
 Analyze BC-Bench GitHub Actions artifacts that you already downloaded.
 
-Supports TWO input modes (no GitHub API, no tokens):
+Supports TWO input modes (no GitHub API, no tokens), which can be COMBINED:
 
 1) ZIP mode: point to a folder of artifact .zip files you downloaded from Actions UI
    - Uses --zips-dir <folder> or repeated --zip <file.zip>
@@ -17,6 +17,9 @@ Supports TWO input modes (no GitHub API, no tokens):
 2) EXTRACTED mode: point to a folder that ALREADY contains extracted artifact content
    - Uses --extracted-dir <folder>
    - Also works if you point --zips-dir to a folder with *no zip files* but with extracted subfolders.
+
+Both modes can be used together (e.g. --zips-dir artifacts/manual --extracted-dir out2)
+to merge zip-based and pre-extracted runs into a single analysis.
 
 Outputs (under --out):
   artifacts_extracted/ (only in ZIP mode)
@@ -310,10 +313,10 @@ def main() -> None:
     out_root.mkdir(parents=True, exist_ok=True)
     files_root.mkdir(parents=True, exist_ok=True)
 
-    # ---------- Decide input mode ----------
+    # ---------- Decide input mode (both --zips-dir and --extracted-dir can be combined) ----------
     extracted_dirs: List[Path] = []
 
-    # EXTRACTED mode explicitly
+    # EXTRACTED mode: pre-extracted content folders
     if args.extracted_dir:
         root = Path(args.extracted_dir)
         if not root.exists():
@@ -321,85 +324,87 @@ def main() -> None:
         sub = [p for p in root.iterdir() if p.is_dir()]
         extracted_dirs = sorted(sub) if sub else [root]
         print(f"Using extracted content: {root} (runs={len(extracted_dirs)})")
-    else:
-        # ZIP mode: gather zip inputs and group by run folder when applicable
-        run_groups: List[Tuple[str, List[Path]]] = []
 
-        # Group by immediate subfolders under --zips-dir (manual/1, manual/2, manual/3)
-        if args.zips_dir:
-            root_dir = Path(args.zips_dir)
-            if root_dir.exists() and root_dir.is_dir():
-                subdirs = sorted([d for d in root_dir.iterdir() if d.is_dir()])
-                if subdirs:
-                    for sd in subdirs:
-                        zips_in_sd = find_zip_files(sd)
-                        if zips_in_sd:
-                            run_groups.append((sd.name, zips_in_sd))
+    # ZIP mode: gather zip inputs and group by run folder when applicable
+    run_groups: List[Tuple[str, List[Path]]] = []
 
-                    # Also include zips directly under root as one group (optional)
-                    root_zips = sorted([z for z in root_dir.glob("*.zip") if z.is_file()])
-                    if root_zips:
-                        run_groups.insert(0, (root_dir.name, root_zips))
-                else:
-                    # No subdirs; treat root as a single run
-                    zips_in_root = find_zip_files(root_dir)
-                    if zips_in_root:
-                        run_groups.append((root_dir.name, zips_in_root))
+    # Group by immediate subfolders under --zips-dir (manual/1, manual/2, manual/3)
+    if args.zips_dir:
+        root_dir = Path(args.zips_dir)
+        if root_dir.exists() and root_dir.is_dir():
+            subdirs = sorted([d for d in root_dir.iterdir() if d.is_dir()])
+            if subdirs:
+                for sd in subdirs:
+                    zips_in_sd = find_zip_files(sd)
+                    if zips_in_sd:
+                        run_groups.append((sd.name, zips_in_sd))
 
-        # Explicit --zip files become their own run group if not already included
-        explicit_zip_inputs: List[Path] = []
-        for z in args.zips:
-            explicit_zip_inputs.extend(find_zip_files(Path(z)))
-        explicit_zip_inputs = sorted(set(explicit_zip_inputs))
-        if explicit_zip_inputs:
-            in_group = set(zp for _, zs in run_groups for zp in zs)
-            for zp in explicit_zip_inputs:
-                if zp not in in_group:
-                    run_groups.append((zp.stem, [zp]))
-
-        if run_groups:
-            extract_root.mkdir(parents=True, exist_ok=True)
-            for run_i, (run_name, zips_for_run) in enumerate(run_groups, start=1):
-                tag = safe_name(run_name)
-                dest = extract_root / f"{run_i:03d}_{tag}"
-                dest.mkdir(parents=True, exist_ok=True)
-                print(f"Extract run [{run_i}/{len(run_groups)}]: {run_name} (zips={len(zips_for_run)}) -> {dest}")
-
-                for i, zip_path in enumerate(zips_for_run, start=1):
-                    zip_tag = safe_name(zip_path.stem)
-                    zip_dest = dest / f"{i:03d}_{zip_tag}"
-                    print(f"  - Extract zip [{i}/{len(zips_for_run)}]: {zip_path} -> {zip_dest}")
-                    extract_zip_file(zip_path, zip_dest)
-
-                    # Nested extraction inside this zip subtree
-                    cur_level = [zip_dest]
-                    for _depth in range(1, args.zip_depth + 1):
-                        next_level: List[Path] = []
-                        for d in cur_level:
-                            for nested in rglob_files(d, "*.zip"):
-                                nested_tag = safe_name(nested.stem)
-                                nested_dest = nested.parent / f"{nested_tag}__unzipped"
-                                if nested_dest.exists():
-                                    continue
-                                try:
-                                    extract_zip_file(nested, nested_dest)
-                                    next_level.append(nested_dest)
-                                except zipfile.BadZipFile:
-                                    continue
-                        cur_level = next_level
-                        if not cur_level:
-                            break
-
-                extracted_dirs.append(dest)
-        else:
-            # No zips found. If --zips-dir exists, treat it as extracted content.
-            if args.zips_dir and Path(args.zips_dir).exists():
-                root = Path(args.zips_dir)
-                sub = [d for d in root.iterdir() if d.is_dir()]
-                extracted_dirs = sorted(sub) if sub else [root]
-                print(f"No .zip files found under --zips-dir; treating as extracted content: {root} (runs={len(extracted_dirs)})")
+                # Also include zips directly under root as one group (optional)
+                root_zips = sorted([z for z in root_dir.glob("*.zip") if z.is_file()])
+                if root_zips:
+                    run_groups.insert(0, (root_dir.name, root_zips))
             else:
-                die("No .zip files found. Use --zip <file.zip> or --zips-dir <folder> or --extracted-dir <folder>.")
+                # No subdirs; treat root as a single run
+                zips_in_root = find_zip_files(root_dir)
+                if zips_in_root:
+                    run_groups.append((root_dir.name, zips_in_root))
+
+    # Explicit --zip files become their own run group if not already included
+    explicit_zip_inputs: List[Path] = []
+    for z in args.zips:
+        explicit_zip_inputs.extend(find_zip_files(Path(z)))
+    explicit_zip_inputs = sorted(set(explicit_zip_inputs))
+    if explicit_zip_inputs:
+        in_group = set(zp for _, zs in run_groups for zp in zs)
+        for zp in explicit_zip_inputs:
+            if zp not in in_group:
+                run_groups.append((zp.stem, [zp]))
+
+    if run_groups:
+        extract_root.mkdir(parents=True, exist_ok=True)
+        for run_i, (run_name, zips_for_run) in enumerate(run_groups, start=1):
+            tag = safe_name(run_name)
+            dest = extract_root / f"{run_i:03d}_{tag}"
+            dest.mkdir(parents=True, exist_ok=True)
+            print(f"Extract run [{run_i}/{len(run_groups)}]: {run_name} (zips={len(zips_for_run)}) -> {dest}")
+
+            for i, zip_path in enumerate(zips_for_run, start=1):
+                zip_tag = safe_name(zip_path.stem)
+                zip_dest = dest / f"{i:03d}_{zip_tag}"
+                print(f"  - Extract zip [{i}/{len(zips_for_run)}]: {zip_path} -> {zip_dest}")
+                extract_zip_file(zip_path, zip_dest)
+
+                # Nested extraction inside this zip subtree
+                cur_level = [zip_dest]
+                for _depth in range(1, args.zip_depth + 1):
+                    next_level: List[Path] = []
+                    for d in cur_level:
+                        for nested in rglob_files(d, "*.zip"):
+                            nested_tag = safe_name(nested.stem)
+                            nested_dest = nested.parent / f"{nested_tag}__unzipped"
+                            if nested_dest.exists():
+                                continue
+                            try:
+                                extract_zip_file(nested, nested_dest)
+                                next_level.append(nested_dest)
+                            except zipfile.BadZipFile:
+                                continue
+                    cur_level = next_level
+                    if not cur_level:
+                        break
+
+            extracted_dirs.append(dest)
+    elif not extracted_dirs:
+        # No zips found and no extracted dirs. If --zips-dir exists, treat it as extracted content.
+        if args.zips_dir and Path(args.zips_dir).exists():
+            root = Path(args.zips_dir)
+            sub = [d for d in root.iterdir() if d.is_dir()]
+            extracted_dirs = sorted(sub) if sub else [root]
+            print(f"No .zip files found under --zips-dir; treating as extracted content: {root} (runs={len(extracted_dirs)})")
+        else:
+            die("No .zip files found. Use --zip <file.zip> or --zips-dir <folder> or --extracted-dir <folder>.")
+
+    print(f"\nTotal runs to analyze: {len(extracted_dirs)}")
 
     # ---------- Collect jsonl/txt per extracted run ----------
     run_index = 0
