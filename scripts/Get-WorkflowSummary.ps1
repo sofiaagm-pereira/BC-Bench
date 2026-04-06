@@ -68,7 +68,10 @@ param(
     [string]$JsonlOutputRoot,
 
     [Parameter(Mandatory = $false)]
-    [switch]$KeepArtifacts
+    [switch]$KeepArtifacts,
+
+    [Parameter(Mandatory = $false)]
+    [string]$Category
 )
 
 function Get-WorkflowRuns {
@@ -401,7 +404,7 @@ try {
 
     foreach ($run in $runs) {
         $currentRunId = $run.databaseId
-        
+
         if ($run.conclusion -in @("cancelled", "skipped")) {
             Write-Log "Skipping run $currentRunId because conclusion is $($run.conclusion)" -Level Warning
             continue
@@ -466,6 +469,18 @@ try {
 
         if ($summaryText) {
             $parsed = Parse-EvaluationSummary -SummaryText $summaryText
+            # ✅ Category filter
+            if ($Category) {
+                if (-not $parsed.Category) {
+                    Write-Log "Skipping run $currentRunId (no category found)" -Level Warning
+                    continue
+                }
+
+                if ($parsed.Category -ne $Category) {
+                    Write-Log "Skipping run $currentRunId (category '$($parsed.Category)' does not match '$Category')" -Level Info
+                    continue
+                }
+            }
             $parsed | Add-Member -NotePropertyName "RunId" -NotePropertyValue $currentRunId
             $parsed | Add-Member -NotePropertyName "RunUrl" -NotePropertyValue $run.url
             $parsed | Add-Member -NotePropertyName "Branch" -NotePropertyValue $run.headBranch
