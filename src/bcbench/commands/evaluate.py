@@ -228,6 +228,9 @@ class MockEvaluationPipeline(EvaluationPipeline[BaseDatasetEntry]):
     It randomly generates different scenarios to test result handling and serialization.
     """
 
+    def setup_workspace(self, entry: BaseDatasetEntry, repo_path: Path) -> None:
+        logger.info("Mock pipeline: Skipping workspace setup")
+
     def setup(self, context: EvaluationContext[BaseDatasetEntry]) -> None:
         logger.info("Mock pipeline: Skipping setup")
 
