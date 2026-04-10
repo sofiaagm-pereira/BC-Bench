@@ -30,11 +30,12 @@ def list_entries(
     include_counterfactual: Annotated[bool, typer.Option(help="Include counterfactual entries from counterfactual.jsonl")] = True,
     batch: Annotated[int, typer.Option(help="Batch index (1-based) when splitting entries across multiple runs")] = 0,
     batch_count: Annotated[int, typer.Option(help="Total number of batches to split into (0 = no splitting)")] = 0,
+    cf_variant: Annotated[int, typer.Option(help="Filter counterfactual entries by variant number (e.g., 1 for __cf-1, 2 for __cf-2)")] = 0,
 ):
     """List dataset entry IDs."""
     is_cf = category == EvaluationCategory.COUNTERFACTUAL_EVALUATION
 
-    entry_ids = _list_counterfactual_entries(modified_only, base_ref, test_run) if is_cf else _list_base_entries(category, modified_only, base_ref, test_run, include_counterfactual)
+    entry_ids = _list_counterfactual_entries(modified_only, base_ref, test_run, cf_variant) if is_cf else _list_base_entries(category, modified_only, base_ref, test_run, include_counterfactual)
 
     if batch_count > 0 and batch > 0:
         entry_ids = _select_batch(entry_ids, batch, batch_count)
@@ -47,7 +48,7 @@ def list_entries(
         _write_github_output(github_output, json.dumps(entry_ids))
 
 
-def _list_counterfactual_entries(modified_only: bool, base_ref: str, test_run: bool) -> list[str]:
+def _list_counterfactual_entries(modified_only: bool, base_ref: str, test_run: bool, cf_variant: int = 0) -> list[str]:
     from bcbench.config import get_config
 
     config = get_config()
@@ -70,6 +71,10 @@ def _list_counterfactual_entries(modified_only: bool, base_ref: str, test_run: b
 
     cf_pairs = load_counterfactual_entries(cf_path, base_path)
     entry_ids = [cf_entry.instance_id for cf_entry, _ in cf_pairs]
+
+    if cf_variant > 0:
+        suffix = f"__cf-{cf_variant}"
+        entry_ids = [eid for eid in entry_ids if eid.endswith(suffix)]
 
     if test_run:
         return entry_ids[:2]

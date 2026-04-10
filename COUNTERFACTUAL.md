@@ -146,13 +146,32 @@ uv run bcbench evaluate copilot microsoftInternal__NAV-210528__cf-1 \
 
 The `--category counterfactual-evaluation` flag tells BC-Bench to use the CF entry's patches and tests for evaluation. The system auto-detects CF entries by their `__cf-N` suffix.
 
+### CI Workflow (GitHub Actions)
+
+GitHub Actions has a **256 job limit per workflow run**. With 255 CF entries + overhead jobs, the dataset must be split into batches. Use the `batch` and `batch-count` inputs:
+
+```
+# Dispatch 3 separate workflow runs:
+# Run 1: batch=1, batch-count=3  → ~87 entries
+# Run 2: batch=2, batch-count=3  → ~87 entries
+# Run 3: batch=3, batch-count=3  → ~81 entries
+```
+
+CF batching groups by **base instance ID** — all CF variants of the same bug stay in the same batch. This avoids splitting related entries across runs.
+
 ## Listing CF Entries
 
 ```bash
-# List all entries (includes CF entries by default)
+# List all CF entries
+uv run bcbench dataset list --category counterfactual-evaluation
+
+# List CF entries in batch 1 of 3
+uv run bcbench dataset list --category counterfactual-evaluation --batch 1 --batch-count 3
+
+# List base entries (includes CF entries by default)
 uv run bcbench dataset list
 
-# List without CF entries
+# List base entries without CF entries
 uv run bcbench dataset list --no-include-counterfactual
 ```
 

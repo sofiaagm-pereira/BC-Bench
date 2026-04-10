@@ -42,6 +42,24 @@ on:
         required: false
         default: false
         type: boolean
+      batch:
+        description: "Batch index (1-based) for splitting large datasets (0=no splitting)"
+        required: false
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+          - "2"
+          - "3"
+      batch-count:
+        description: "Total number of batches to split into (0=no splitting)"
+        required: false
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "3"
       repeat:
         description: "Number of times to run sequentially (ignored for test runs)"
         required: false
@@ -68,6 +86,8 @@ jobs:
       test-run: ${{ inputs.test-run }}
       category: ${{ inputs.category }}
       include-counterfactual: false
+      batch: ${{ inputs.batch && fromJSON(inputs.batch) || 0 }}
+      batch-count: ${{ inputs.batch-count && fromJSON(inputs.batch-count) || 0 }}
 
   evaluate-with-copilot-cli:
     runs-on: [GitHub-BCBench]
@@ -170,4 +190,4 @@ jobs:
       workflow-file: copilot-evaluation.yml
       repeat: ${{ inputs.repeat }}
       workflow-inputs: |
-        {"model": "${{ inputs.model }}", "category": "${{ inputs.category }}", "test-run": "${{ inputs.test-run }}", "al-mcp": "${{ inputs.al-mcp }}"}
+        {"model": "${{ inputs.model }}", "category": "${{ inputs.category }}", "test-run": "${{ inputs.test-run }}", "al-mcp": "${{ inputs.al-mcp }}", "batch": "${{ inputs.batch }}", "batch-count": "${{ inputs.batch-count }}"}
