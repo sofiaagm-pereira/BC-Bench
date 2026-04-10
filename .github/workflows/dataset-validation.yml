@@ -31,6 +31,7 @@ jobs:
       base-ref: ${{ inputs.base-ref || 'HEAD~1' }}
       test-run: ${{ inputs.test-run || false }}
       category: "bug-fix"
+      include-counterfactual: false
 
   verify-build-and-tests:
     runs-on: [GitHub-BCBench]

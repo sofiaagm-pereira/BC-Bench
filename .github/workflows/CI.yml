@@ -51,6 +51,7 @@ jobs:
     with:
       test-run: true
       category: ${{ needs.select-category.outputs.category }}
+      include-counterfactual: false
 
   mock-evaluation:
     runs-on: ubuntu-latest
