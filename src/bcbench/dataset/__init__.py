@@ -2,15 +2,13 @@
 
 from bcbench.dataset.counterfactual_entry import CounterfactualEntry
 from bcbench.dataset.counterfactual_loader import load_counterfactual_entries
-from bcbench.dataset.dataset_entry import DatasetEntry, TestEntry
-from bcbench.dataset.dataset_loader import load_dataset_entries
-from bcbench.dataset.reviewer import run_dataset_reviewer
+from bcbench.dataset.dataset_entry import BaseDatasetEntry, BugFixEntry, TestEntry, TestGenEntry
 
 __all__ = [
+    "BaseDatasetEntry",
+    "BugFixEntry",
     "CounterfactualEntry",
-    "DatasetEntry",
     "TestEntry",
+    "TestGenEntry",
     "load_counterfactual_entries",
-    "load_dataset_entries",
-    "run_dataset_reviewer",
 ]

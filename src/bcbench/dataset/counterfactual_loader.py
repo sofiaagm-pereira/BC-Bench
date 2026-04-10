@@ -3,8 +3,7 @@
 from pathlib import Path
 
 from bcbench.dataset.counterfactual_entry import CounterfactualEntry
-from bcbench.dataset.dataset_entry import DatasetEntry
-from bcbench.dataset.dataset_loader import load_dataset_entries
+from bcbench.dataset.dataset_entry import BugFixEntry
 from bcbench.exceptions import EntryNotFoundError
 
 __all__ = ["load_counterfactual_entries"]
@@ -42,7 +41,7 @@ def _load_raw_counterfactual_entries(cf_path: Path, entry_id: str | None = None)
     return entries
 
 
-def _resolve_base_entry(base_instance_id: str, base_entries: list[DatasetEntry]) -> DatasetEntry:
+def _resolve_base_entry(base_instance_id: str, base_entries: list[BugFixEntry]) -> BugFixEntry:
     for entry in base_entries:
         if entry.instance_id == base_instance_id:
             return entry
@@ -53,7 +52,7 @@ def load_counterfactual_entries(
     cf_path: Path,
     base_path: Path,
     entry_id: str | None = None,
-) -> list[tuple[CounterfactualEntry, DatasetEntry]]:
+) -> list[tuple[CounterfactualEntry, BugFixEntry]]:
     """Load counterfactual entries and resolve their base dataset entries.
 
     Args:
@@ -62,9 +61,9 @@ def load_counterfactual_entries(
         entry_id: Optional entry ID — can be a variant ID (exact match) or base instance ID (all variants)
 
     Returns:
-        List of (CounterfactualEntry, DatasetEntry) tuples
+        List of (CounterfactualEntry, BugFixEntry) tuples
     """
     cf_entries = _load_raw_counterfactual_entries(cf_path, entry_id)
-    base_entries = load_dataset_entries(base_path)
+    base_entries = BugFixEntry.load(base_path)
 
     return [(cf_entry, _resolve_base_entry(cf_entry.base_instance_id, base_entries)) for cf_entry in cf_entries]

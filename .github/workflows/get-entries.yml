@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      category:
+        description: Evaluation category
+        required: true
+        type: string
+        default: "bug-fix"
       include-counterfactual:
         description: Include counterfactual entries from counterfactual.jsonl
         required: false
@@ -47,7 +52,7 @@ jobs:
       - name: Get entries for matrix
         id: get-entries
         run: |
-          cmd="uv run bcbench dataset list --github-output entries"
+          cmd="uv run bcbench dataset list --category ${{ inputs.category }} --github-output entries"
 
           if [[ "${{ inputs.modified-only }}" == "true" ]]; then
             cmd="$cmd --modified-only --base-ref '${{ inputs.base-ref }}'"

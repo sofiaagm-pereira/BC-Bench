@@ -10,7 +10,7 @@ from bcbench.dataset.dataset_entry import TestEntry
 from bcbench.types import FailureLayer
 
 if TYPE_CHECKING:
-    from bcbench.dataset.dataset_entry import DatasetEntry
+    from bcbench.dataset.dataset_entry import BugFixEntry
 
 __all__ = ["CounterfactualEntry"]
 
@@ -31,16 +31,16 @@ class CounterfactualEntry(BaseModel):
 
     problem_statement_override: Annotated[str, Field(min_length=1)]
 
-    def to_dataset_entry(self, base: DatasetEntry) -> DatasetEntry:
-        """Merge this counterfactual entry with its base to produce a DatasetEntry.
+    def to_dataset_entry(self, base: BugFixEntry) -> BugFixEntry:
+        """Merge this counterfactual entry with its base to produce a BugFixEntry.
 
         Repo-level fields (repo, base_commit, project_paths, environment_setup_version)
         come from the base entry. Specification fields (test_patch, patch, FAIL_TO_PASS,
         PASS_TO_PASS) come from this counterfactual entry.
         """
-        from bcbench.dataset.dataset_entry import DatasetEntry
+        from bcbench.dataset.dataset_entry import BugFixEntry
 
-        return DatasetEntry(
+        return BugFixEntry(
             instance_id=self.instance_id,
             repo=base.repo,
             base_commit=base.base_commit,

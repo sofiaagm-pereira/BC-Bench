@@ -18,7 +18,7 @@ from bcbench.dataset.dataset_entry import TestEntry
 from bcbench.logger import get_logger
 
 if TYPE_CHECKING:
-    from bcbench.dataset.dataset_entry import DatasetEntry
+    from bcbench.dataset.dataset_entry import BugFixEntry
 
 logger = get_logger(__name__)
 _config = get_config()
@@ -26,7 +26,7 @@ _config = get_config()
 WORKSPACE_METADATA_FILE = "workspace.json"
 
 
-def extract_workspace(entry: DatasetEntry, output_dir: Path, repo_path: Path | None = None) -> Path:
+def extract_workspace(entry: BugFixEntry, output_dir: Path, repo_path: Path | None = None) -> Path:
     """Extract patch hunks into an editable workspace directory.
 
     Creates a workspace with before/after .al files for both fix and test patches.
@@ -64,7 +64,7 @@ def extract_workspace(entry: DatasetEntry, output_dir: Path, repo_path: Path | N
     return output_dir
 
 
-def _extract_via_repo(entry: DatasetEntry, output_dir: Path, repo_path: Path) -> None:
+def _extract_via_repo(entry: BugFixEntry, output_dir: Path, repo_path: Path) -> None:
     from bcbench.operations.git_operations import apply_patch, checkout_commit, clean_repo
 
     checkout_commit(repo_path, entry.base_commit)
@@ -235,7 +235,7 @@ def create_cf_entry(
     if problem_statement_dir is None:
         problem_statement_dir = _config.paths.problem_statement_dir
     if dataset_path is None:
-        dataset_path = _config.paths.dataset_path
+        dataset_path = _config.paths.dataset_dir / "bcbench.jsonl"
 
     instance_id = _next_cf_id(base_instance_id, cf_path)
 
@@ -286,10 +286,10 @@ def _read_workspace_file_contents(workspace_dir: Path, category: str) -> dict[st
 
 def _resolve_pass_to_pass_from_base(base_instance_id: str, dataset_path: Path) -> list[TestEntry]:
     """Load PASS_TO_PASS from the base dataset entry."""
-    from bcbench.dataset.dataset_loader import load_dataset_entries
+    from bcbench.dataset.dataset_entry import BugFixEntry
 
     try:
-        entries = load_dataset_entries(dataset_path, entry_id=base_instance_id)
+        entries = BugFixEntry.load(dataset_path, entry_id=base_instance_id)
         return entries[0].pass_to_pass
     except Exception:
         logger.warning(f"Could not load PASS_TO_PASS from base entry {base_instance_id}")
@@ -419,10 +419,10 @@ def _detect_fail_to_pass(
 
 def _resolve_codeunit_id_from_base(file_path: str, base_instance_id: str) -> int | None:
     """Resolve codeunit ID from the base entry's FAIL_TO_PASS data."""
-    from bcbench.dataset.dataset_loader import load_dataset_entries
+    from bcbench.dataset.dataset_entry import BugFixEntry
 
     try:
-        entries = load_dataset_entries(_config.paths.dataset_path, entry_id=base_instance_id)
+        entries = BugFixEntry.load(_config.paths.dataset_dir / "bcbench.jsonl", entry_id=base_instance_id)
         if entries:
             base_entry = entries[0]
             # Extract codeunit IDs from test_patch of the base entry for matching file paths

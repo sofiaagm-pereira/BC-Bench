@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from bcbench.dataset import CounterfactualEntry, DatasetEntry, load_counterfactual_entries
+from bcbench.dataset import BugFixEntry, CounterfactualEntry, load_counterfactual_entries
 from bcbench.dataset.dataset_entry import TestEntry
 from bcbench.exceptions import EntryNotFoundError
 from bcbench.results.counterfactual import CounterfactualResult
@@ -59,7 +59,7 @@ def create_counterfactual_file(tmp_path: Path, entries: list[CounterfactualEntry
     return cf_path
 
 
-def create_base_dataset_file(tmp_path: Path, entries: list[DatasetEntry] | None = None) -> Path:
+def create_base_dataset_file(tmp_path: Path, entries: list[BugFixEntry] | None = None) -> Path:
     if entries is None:
         entries = [create_dataset_entry()]
 
@@ -131,7 +131,7 @@ class TestCounterfactualToDatasetEntry:
         base_entry = create_dataset_entry()
 
         merged = cf_entry.to_dataset_entry(base_entry)
-        assert isinstance(merged, DatasetEntry)
+        assert isinstance(merged, BugFixEntry)
 
 
 class TestCounterfactualLoader:
@@ -262,7 +262,7 @@ class TestCounterfactualDatasetIntegration:
 
         config = get_config()
         cf_path = config.paths.counterfactual_dataset_path
-        base_path = config.paths.dataset_path
+        base_path = config.paths.dataset_dir / "bcbench.jsonl"
 
         pairs = load_counterfactual_entries(cf_path, base_path)
         assert len(pairs) >= 1
@@ -275,7 +275,7 @@ class TestCounterfactualDatasetIntegration:
 
         config = get_config()
         cf_path = config.paths.counterfactual_dataset_path
-        base_path = config.paths.dataset_path
+        base_path = config.paths.dataset_dir / "bcbench.jsonl"
 
         pairs = load_counterfactual_entries(cf_path, base_path, entry_id="microsoftInternal__NAV-210528__cf-1")
         assert len(pairs) == 1
@@ -289,7 +289,7 @@ class TestCounterfactualDatasetIntegration:
 
         config = get_config()
         cf_path = config.paths.counterfactual_dataset_path
-        base_path = config.paths.dataset_path
+        base_path = config.paths.dataset_dir / "bcbench.jsonl"
 
         pairs = load_counterfactual_entries(cf_path, base_path, entry_id="microsoftInternal__NAV-210528")
         assert len(pairs) >= 1
@@ -300,7 +300,7 @@ class TestCounterfactualDatasetIntegration:
 
         config = get_config()
         cf_path = config.paths.counterfactual_dataset_path
-        base_path = config.paths.dataset_path
+        base_path = config.paths.dataset_dir / "bcbench.jsonl"
 
         pairs = load_counterfactual_entries(cf_path, base_path, entry_id="microsoftInternal__NAV-210528__cf-1")
         cf_entry, base_entry = pairs[0]
@@ -323,7 +323,7 @@ class TestCounterfactualDatasetIntegration:
 
         config = get_config()
         cf_path = config.paths.counterfactual_dataset_path
-        base_path = config.paths.dataset_path
+        base_path = config.paths.dataset_dir / "bcbench.jsonl"
 
         pairs = load_counterfactual_entries(cf_path, base_path, entry_id="microsoftInternal__NAV-210528__cf-1")
         cf_entry, base_entry = pairs[0]

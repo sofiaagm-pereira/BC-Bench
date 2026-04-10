@@ -35,14 +35,12 @@ class PathConfig:
     """File and directory paths."""
 
     bc_bench_root: Path
-    dataset_path: Path
     dataset_dir: Path
     problem_statement_dir: Path
     testbed_path: Path
     ps_script_path: Path
     evaluation_results_path: Path
     leaderboard_dir: Path
-    copilot_dir: Path
     agent_share_dir: Path
 
     counterfactual_dataset_path: Path
@@ -53,14 +51,12 @@ class PathConfig:
         return cls(
             bc_bench_root=root,
             dataset_dir=root / "dataset",
-            dataset_path=root / "dataset" / "bcbench.jsonl",
             counterfactual_dataset_path=root / "dataset" / "counterfactual.jsonl",
             problem_statement_dir=root / "dataset" / "problemstatement",
             testbed_path=root.parent / "NAV",
             ps_script_path=root / "scripts",
             evaluation_results_path=root / "evaluation_results",
             leaderboard_dir=root / "docs" / "_data",
-            copilot_dir=root / "src" / "bcbench" / "agent" / "copilot",
             agent_share_dir=root / "src" / "bcbench" / "agent" / "shared",
         )
 
