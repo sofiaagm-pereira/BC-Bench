@@ -8,7 +8,10 @@ from bcbench.types import EvaluationCategory
 
 def build_prompt(entry: BaseDatasetEntry, repo_path: Path, config: dict, category: EvaluationCategory, al_mcp: bool = False) -> str:
     prompt_config = config.get("prompt", {})
-    template_str = prompt_config.get(f"{category.value}-template")
+    template_key = f"{category.value}-template"
+    if category == EvaluationCategory.COUNTERFACTUAL_EVALUATION:
+        template_key = f"{EvaluationCategory.BUG_FIX.value}-template"
+    template_str = prompt_config.get(template_key)
     include_project_paths = prompt_config.get("include_project_paths")
 
     test_gen_input: str = prompt_config.get("test-generation-input", "problem-statement")

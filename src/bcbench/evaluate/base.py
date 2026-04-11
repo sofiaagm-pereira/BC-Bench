@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 from bcbench.config import get_config
 from bcbench.dataset import BaseDatasetEntry
-from bcbench.exceptions import AgentTimeoutError
+from bcbench.exceptions import AgentError, AgentTimeoutError
 from bcbench.logger import get_logger
 from bcbench.results import BaseEvaluationResult
 from bcbench.types import AgentMetrics, EvaluationContext, ExperimentConfiguration
@@ -86,6 +86,12 @@ class EvaluationPipeline[E: BaseDatasetEntry](ABC):
             result = BaseEvaluationResult.create_agent_timeout_failure(context)
             self.save_result(context, result)
             logger.info("Agent timed out during execution, counting as failure.")
+            return
+        except (AgentError, Exception) as e:
+            error_msg = f"Agent failed: {e}"
+            result = BaseEvaluationResult.create_build_failure(context, generated_patch="", error_msg=error_msg)
+            self.save_result(context, result)
+            logger.error(error_msg)
             return
         finally:
             logger.info(f"Agent metrics: {context.metrics}")
