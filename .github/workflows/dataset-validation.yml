@@ -66,3 +66,45 @@ jobs:
         timeout-minutes: 60
         run: .\scripts\Verify-BuildAndTests.ps1 -InstanceId "${{ matrix.entry }}" -RepoPath "${{ steps.setup-env.outputs.repo_path }}"
         shell: pwsh
+
+  get-cf-entries:
+    uses: ./.github/workflows/get-entries.yml
+    with:
+      modified-only: ${{ github.event_name == 'push' }}
+      base-ref: ${{ inputs.base-ref || 'HEAD~1' }}
+      test-run: ${{ inputs.test-run || false }}
+      category: "counterfactual-evaluation"
+
+  verify-counterfactual-entries:
+    runs-on: [GitHub-BCBench]
+    needs: get-cf-entries
+    if: needs.get-cf-entries.outputs.entries != '[]'
+    environment:
+      name: ado-read
+      deployment: false
+    permissions:
+      contents: read
+      id-token: write
+    name: cf-${{ matrix.entry }}
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.get-cf-entries.outputs.entries) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup BC container
+        id: setup-env
+        timeout-minutes: 40
+        uses: ./.github/actions/setup-bc-container
+        with:
+          instance-id: ${{ matrix.entry }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run build and test verification for ${{ matrix.entry }}
+        timeout-minutes: 60
+        run: .\scripts\Verify-BuildAndTests.ps1 -InstanceId "${{ matrix.entry }}" -RepoPath "${{ steps.setup-env.outputs.repo_path }}"
+        shell: pwsh

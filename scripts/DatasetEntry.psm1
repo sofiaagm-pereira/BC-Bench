@@ -118,4 +118,68 @@ function Get-DatasetEntries {
     return $entries
 }
 
-Export-ModuleMember -Function Get-DatasetEntries
+function Get-CounterfactualDatasetEntry {
+    [CmdletBinding()]
+    [OutputType([DatasetEntry])]
+
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$InstanceId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$CounterfactualDatasetPath = (Get-BCBenchDatasetPath -DatasetName "counterfactual.jsonl"),
+
+        [Parameter(Mandatory = $false)]
+        [string]$BaseDatasetPath = (Get-BCBenchDatasetPath)
+    )
+
+    if (-not (Test-Path $CounterfactualDatasetPath)) {
+        throw "Counterfactual dataset not found at: $CounterfactualDatasetPath"
+    }
+
+    # Find the CF entry in counterfactual.jsonl
+    $cfContent = Get-Content $CounterfactualDatasetPath -Raw
+    $cfJsonObjects = $cfContent -split '(?<=})\s*\n(?=\{)' | Where-Object { $_.Trim().Length -gt 0 }
+
+    $cfJson = $null
+    foreach ($jsonString in $cfJsonObjects) {
+        $parsed = $jsonString.Trim() | ConvertFrom-Json
+        if ($parsed.instance_id -eq $InstanceId) {
+            $cfJson = $parsed
+            break
+        }
+    }
+
+    if (-not $cfJson) {
+        throw "Counterfactual entry '$InstanceId' not found in $CounterfactualDatasetPath"
+    }
+
+    # Load the base entry
+    [string] $baseInstanceId = $cfJson.base_instance_id
+    [DatasetEntry[]] $baseEntries = Get-DatasetEntries -DatasetPath $BaseDatasetPath -InstanceId $baseInstanceId
+    if ($baseEntries.Count -eq 0) {
+        throw "Base entry '$baseInstanceId' not found in $BaseDatasetPath"
+    }
+
+    [DatasetEntry] $base = $baseEntries[0]
+
+    # Merge: take infrastructure from base, test/patch data from CF
+    $merged = @{
+        repo                      = $base.repo
+        instance_id               = $cfJson.instance_id
+        base_commit               = $base.base_commit
+        environment_setup_version = $base.environment_setup_version
+        project_paths             = $base.project_paths
+        patch                     = $cfJson.patch
+        test_patch                = $cfJson.test_patch
+        FAIL_TO_PASS              = $cfJson.FAIL_TO_PASS
+        PASS_TO_PASS              = if ($cfJson.PASS_TO_PASS) { $cfJson.PASS_TO_PASS } else { @() }
+        hints_text                = $base.hints_text
+        created_at                = $base.created_at
+        problem_statement         = $base.problem_statement
+    }
+
+    return [DatasetEntry]::new([PSCustomObject]$merged)
+}
+
+Export-ModuleMember -Function Get-DatasetEntries, Get-CounterfactualDatasetEntry

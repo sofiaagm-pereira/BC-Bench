@@ -26,14 +26,20 @@ param(
     [SecureString]$Password
 )
 
-# For counterfactual entries (__cf-N suffix), resolve the base entry from bcbench.jsonl
+# For counterfactual entries (__cf-N suffix), resolve the merged entry from counterfactual.jsonl + bcbench.jsonl
 [string]$LookupInstanceId = $InstanceId
-if ($InstanceId -match '__cf-\d+$') {
+[bool]$IsCounterfactual = $InstanceId -match '__cf-\d+$'
+if ($IsCounterfactual) {
     $LookupInstanceId = $InstanceId -replace '__cf-\d+$', ''
-    Write-Log "Counterfactual entry detected. Using base instance ID: $LookupInstanceId" -Level Info
+    Write-Log "Counterfactual entry detected. Base instance ID: $LookupInstanceId" -Level Info
 }
 
-[DatasetEntry[]] $entries = Get-DatasetEntries -DatasetPath $DatasetPath -Version $Version -InstanceId $LookupInstanceId
+if ($IsCounterfactual) {
+    [DatasetEntry[]] $entries = @(Get-CounterfactualDatasetEntry -InstanceId $InstanceId -BaseDatasetPath $DatasetPath)
+}
+else {
+    [DatasetEntry[]] $entries = Get-DatasetEntries -DatasetPath $DatasetPath -Version $Version -InstanceId $LookupInstanceId
+}
 if ($InstanceId) {
     $Version = $entries[0].environment_setup_version
     Write-Log "Found version $Version for InstanceId $InstanceId" -Level Info
