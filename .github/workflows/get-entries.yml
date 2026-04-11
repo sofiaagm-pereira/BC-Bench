@@ -78,4 +78,6 @@ jobs:
             cmd="$cmd --batch ${{ inputs.batch }} --batch-count ${{ inputs.batch-count }}"
           fi
 
+          echo "Running: $cmd"
           eval "$cmd"
+          echo "entries output: $(cat $GITHUB_OUTPUT)"
