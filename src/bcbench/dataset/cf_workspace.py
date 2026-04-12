@@ -206,9 +206,22 @@ def _generate_git_diff(before_lines: list[str], after_lines: list[str], file_pat
     if not diff_lines:
         return ""
 
+    # difflib emits empty context lines as "\n" (no leading space), but git requires " \n".
+    # Fix up any bare newlines inside hunks so `git apply` doesn't reject them as corrupt.
+    fixed: list[str] = []
+    in_hunk = False
+    for line in diff_lines:
+        if line.startswith("@@"):
+            in_hunk = True
+        elif line.startswith("diff ") or line.startswith("--- ") or line.startswith("+++ "):
+            in_hunk = False
+        elif in_hunk and line == "\n":
+            line = " \n"
+        fixed.append(line)
+
     # Prepend git diff header
     header = f"diff --git a/{file_path} b/{file_path}\n"
-    return header + "".join(diff_lines)
+    return header + "".join(fixed)
 
 
 def create_cf_entry(
