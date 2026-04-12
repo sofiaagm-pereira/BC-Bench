@@ -165,6 +165,16 @@ class ExecutionBasedEvaluationResultSummary(EvaluationResultSummary):
         )
 
 
+class CodeReviewResultSummary(EvaluationResultSummary):
+    """Summary for the code-review category (POC).
+
+    TODO: Add scoring metrics (precision, recall, F1) once evaluation logic is implemented.
+    """
+
+    def display_summary(self) -> dict[str, int | float]:
+        return {"total": self.total}
+
+
 # ---------------------------------------------------------------------------
 # Leaderboard aggregation (execution-based categories only)
 # ---------------------------------------------------------------------------

@@ -13,8 +13,10 @@ from unittest.mock import patch
 import pytest
 
 from bcbench.dataset import BugFixEntry, TestEntry
+from bcbench.dataset.codereview import CodeReviewEntry, ReviewComment
 from bcbench.dataset.dataset_entry import _BugFixTestGenBase
 from bcbench.results.bugfix import BugFixResult
+from bcbench.results.codereview import CodeReviewResult
 from bcbench.results.testgeneration import TestGenerationResult
 from bcbench.types import AgentMetrics, ContainerConfig, EvaluationCategory, EvaluationContext
 
@@ -147,6 +149,58 @@ def create_testgen_result(
         metrics=metrics,
         pre_patch_failed=pre_patch_failed,
         post_patch_passed=post_patch_passed,
+    )
+
+
+def create_codereview_entry(
+    instance_id: str = VALID_INSTANCE_ID,
+    repo: str = VALID_REPO,
+    base_commit: str = VALID_BASE_COMMIT,
+    environment_setup_version: str = VALID_ENVIRONMENT_VERSION,
+    project_paths: list[str] | None = None,
+    patch: str = VALID_PATCH,
+    created_at: str = VALID_CREATED_AT,
+    expected_comments: list[ReviewComment] | None = None,
+) -> CodeReviewEntry:
+    if project_paths is None:
+        project_paths = VALID_PROJECT_PATHS.copy()
+    if expected_comments is None:
+        expected_comments = [
+            ReviewComment(file="src/app.al", line_start=10, body="Fix this", severity="warning"),
+            ReviewComment(file="src/app.al", line_start=20, body="Consider that", severity="suggestion"),
+        ]
+
+    return CodeReviewEntry(
+        instance_id=instance_id,
+        repo=repo,
+        base_commit=base_commit,
+        environment_setup_version=environment_setup_version,
+        project_paths=project_paths,
+        patch=patch,
+        created_at=created_at,
+        expected_comments=expected_comments,
+    )
+
+
+def create_codereview_result(
+    instance_id: str = VALID_INSTANCE_ID,
+    project: str = "Shopify",
+    model: str = "gpt-4o",
+    agent_name: str = "copilot-cli",
+    generated_comments: list[ReviewComment] | None = None,
+    metrics: AgentMetrics | None = None,
+) -> CodeReviewResult:
+    if generated_comments is None:
+        generated_comments = [ReviewComment(file="test.al", line_start=5, body="Good catch")]
+
+    return CodeReviewResult(
+        instance_id=instance_id,
+        project=project,
+        model=model,
+        agent_name=agent_name,
+        category=EvaluationCategory.CODE_REVIEW,
+        generated_comments=generated_comments,
+        metrics=metrics,
     )
 
 

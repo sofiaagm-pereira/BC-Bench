@@ -54,6 +54,14 @@ prompt:
     {{task}}
     {% endif %}
 
+  code-review-template: |
+    /review Review the unstaged changes in this repository and provide feedback as a code reviewer.
+
+    Output your review as a JSON array of comment objects with the following schema:
+    [{"file": "path/to/file.al", "line_start": 10, "line_end": 15, "body": "Your review comment", "severity": "one of: suggestion, warning, error"}]
+
+    Save the JSON array to a file named "review.json" in the current directory.
+
 # controls:
 # 1. whether to copy custom instructions from `src/bcbench/agent/shared/instructions/<sanitized-repo>/`
 #    - Copilot: copies to repo/.github/ and renames AGENTS.md to copilot-instructions.md
