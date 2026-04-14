@@ -73,12 +73,8 @@ jobs:
     outputs:
       results-dir: ${{ env.EVALUATION_RESULTS_DIR }}
     if: needs.get-entries.outputs.entries != '[]'
-    environment:
-      name: ado-read
-      deployment: false
     permissions:
       contents: read
-      id-token: write
     name: ${{ matrix.entry }}
     strategy:
       fail-fast: false
@@ -95,8 +91,6 @@ jobs:
         uses: ./.github/actions/setup-bc-container
         with:
           instance-id: ${{ matrix.entry }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python with UV
@@ -115,16 +109,10 @@ jobs:
       - name: Install GitHub Copilot CLI
         run: npm install -g @github/copilot@1.0.2
 
-      - name: Select PAT based on job index
-        id: select-pat
-        run: |
-          $patIndex = ${{ strategy.job-index }} % 3
-          echo "pat_index=$patIndex" >> $env:GITHUB_OUTPUT
-
       - name: Run GitHub Copilot CLI for entry ${{ matrix.entry }}
         timeout-minutes: 120
         env:
-          COPILOT_GITHUB_TOKEN: ${{ steps.select-pat.outputs.pat_index == '0' && secrets.COPILOT_PAT || (steps.select-pat.outputs.pat_index == '1' && secrets.COPILOT_PAT2 || secrets.COPILOT_PAT3) }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: |
           Write-Output "::add-mask::$env:COPILOT_GITHUB_TOKEN"
 
@@ -148,7 +136,6 @@ jobs:
     uses: ./.github/workflows/summarize-results.yml
     permissions:
       contents: write
-      id-token: write
     with:
       results-dir: ${{ needs.evaluate-with-copilot-cli.outputs.results-dir }}
       model: ${{ inputs.model }}
