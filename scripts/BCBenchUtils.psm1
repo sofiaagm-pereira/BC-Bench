@@ -159,9 +159,10 @@ function Invoke-GitCloneWithRetry {
                 }
             }
 
-            # Fetch the specific commit with history
-            Write-Log "Fetching commit $CommitSha with depth $FetchDepth" -Level Debug
-            $fetchResult = & git -C $ClonePath fetch --depth $FetchDepth origin $CommitSha 2>&1
+            # Fetch the specific commit (no depth limit - shallow fetch of a non-tip SHA
+            # causes protocol negotiation hangs on small repos)
+            Write-Log "Fetching commit $CommitSha" -Level Debug
+            $fetchResult = & git -C $ClonePath fetch origin $CommitSha 2>&1
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to fetch commit $CommitSha`: $fetchResult"
             }
@@ -175,7 +176,7 @@ function Invoke-GitCloneWithRetry {
 
             # Initialize submodules if any exist (while remote is still configured)
             Write-Log "Initializing submodules (if any)" -Level Debug
-            $submoduleResult = & git -C $ClonePath submodule update --init --recursive --depth $FetchDepth 2>&1
+            $submoduleResult = & git -C $ClonePath submodule update --init --recursive 2>&1
             if ($LASTEXITCODE -ne 0) {
                 Write-Log "Warning: Failed to initialize submodules: $submoduleResult" -Level Warning
             }
